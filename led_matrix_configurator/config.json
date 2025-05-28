@@ -1,0 +1,11 @@
+{
+    "high bondary glucose": 160,
+    "image out": "led matrix",
+    "ip": "",
+    "low bondary glucose": 70,
+    "night_brightness": 0.1,
+    "os": "linux",
+    "output type": "image",
+    "token": "",
+    "url": ""
+}

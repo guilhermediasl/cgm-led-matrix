@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Config Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #282a36;
+            color: #f8f8f2;
+        }
+        header {
+            background-color: #44475a;
+            color: #f8f8f2;
+            padding: 1em 0;
+            text-align: center;
+        }
+        main {
+            padding: 1.5em;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #44475a;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        .config-item {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1em;
+        }
+        .config-item label {
+            margin-bottom: 0.5em;
+            color: #BD93F9;
+            font-weight: bold;
+        }
+        .config-item input {
+            padding: 0.5em;
+            border: 1px solid #6272a4;
+            border-radius: 4px;
+            background: #282a36;
+            color: #f8f8f2;
+        }
+        button {
+            display: inline-block;
+            background: #34b153;
+            color: #282a36;
+            padding: 0.5em 1em;
+            font-size: 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #185225;
+        }
+        section {
+            margin-bottom: 2em;
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        pre {
+            background: #282a36;
+            color: #f8f8f2;
+            padding: 1em;
+            border-radius: 4px;
+            border: 1px solid #6272a4;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Configuration Interface</h1>
+    </header>
+    <main>
+        <section>
+            <h2>Edit Configuration</h2>
+            <div id="configContent"></div>
+            <div class="button-group">
+                <button type="button" onclick="saveConfig()">Save Config</button>
+                <button type="button" onclick="reloadConfig()">Reload Config</button>
+            </div>
+        </section>
+        <section>
+            <h2>Application Logs</h2>
+            <pre id="logs">Loading logs...</pre>
+        </section>
+        <section>
+            <h2>Git Pull</h2>
+            <button onclick="gitPull()">Run Git Pull</button>
+            <pre id="gitOutput">Git output will appear here...</pre>
+        </section>
+        <section>
+            <h2>Run Application</h2>
+            <button onclick="runApplication()">Start Application</button>
+            <pre id="runOutput">Application status will appear here...</pre>
+        </section>
+    </main>
+    <script>
+        // Load config on page load
+        function reloadConfig() {
+            fetch('/config')
+                .then(response => response.json())
+                .then(data => {
+                    const configContent = document.getElementById("configContent");
+                    configContent.innerHTML = '';
+                    for (const [key, value] of Object.entries(data.config)) {
+                        const configItem = document.createElement('div');
+                        configItem.className = 'config-item';
+                        configItem.innerHTML = `
+                            <label for="${key}">${key}</label>
+                            <input type="text" id="${key}" name="${key}" value="${value}">
+                        `;
+                        configContent.appendChild(configItem);
+                    }
+                })
+                .catch(error => {
+                    alert("Failed to load configuration: " + error.message);
+                });
+        }
+
+        // Call reloadConfig on page load
+        reloadConfig();
+
+        // Save config
+        function saveConfig() {
+            const configContent = document.getElementById("configContent");
+            const inputs = configContent.querySelectorAll('input');
+            const config = {};
+            inputs.forEach(input => {
+                config[input.name] = input.value;
+            });
+            fetch('/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(config)
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || "Config saved successfully!");
+                restartService();
+            })
+            .catch(error => {
+                alert("Failed to save configuration: " + error.message);
+            });
+        }
+
+        // Restart service
+        function restartService() {
+            fetch('/restart-service', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message || "Service restarted successfully!");
+                })
+                .catch(error => {
+                    alert("Failed to restart service: " + error.message);
+                });
+        }
+
+        // Fetch logs
+        function fetchLogs() {
+            fetch('/logs')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("logs").innerText = data.logs || "No logs available.";
+                })
+                .catch(error => {
+                    document.getElementById("logs").innerText = "Error fetching logs: " + error.message;
+                });
+        }
+
+        // Set interval to fetch logs every 5 seconds
+        setInterval(fetchLogs, 5000);
+
+        // Initial call to fetch logs
+        fetchLogs();
+
+        // Run git pull
+        function gitPull() {
+            fetch('/git-pull', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("gitOutput").innerText = data.output || "Git pull executed.";
+                })
+                .catch(error => {
+                    document.getElementById("gitOutput").innerText = "Error running git pull: " + error.message;
+                });
+        }
+
+        // Run application
+        function runApplication() {
+            fetch('/run', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        document.getElementById("runOutput").innerText = data.message;
+                    } else {
+                        document.getElementById("runOutput").innerText = "Error starting application: " + data.message;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById("runOutput").innerText = "Network error: " + error.message;
+                });
+        }
+    </script>
+</body>
+</html>

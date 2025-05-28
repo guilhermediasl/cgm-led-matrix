@@ -1,0 +1,3 @@
+[submodule "idotmatrix"]
+	path = idotmatrix
+	url = https://github.com/derkalle4/python3-idotmatrix-client
