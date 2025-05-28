@@ -1,4 +1,4 @@
 app.log
 *.pyc
 /temp
-led_matrix_configurator\config.json
+led_matrix_configurator/config.json
