@@ -8,7 +8,7 @@ import pytz
 from PIL import Image
 import os
 from patterns import digit_patterns, arrow_patterns, signal_patterns
-from util import Color, EntrieEnum, GlucoseItem, TreatmentEnum, TreatmentItem, ColorType
+from util import Color, EntrieEnum, GlucoseItem, TreatmentEnum, TreatmentItem, ColorType, ExerciseItem
 
 class PixelMatrix:
     def __init__(self, matrix_size: int, min_glucose: int, max_glucose: int, GLUCOSE_LOW, GLUCOSE_HIGH, night_brightness):
@@ -18,12 +18,12 @@ class PixelMatrix:
         self.GLUCOSE_LOW = GLUCOSE_LOW
         self.GLUCOSE_HIGH = GLUCOSE_HIGH
         self.night_brightness = night_brightness
-        self.pixels = [[ColorType(0,0,0) for _ in range(matrix_size)] for _ in range(matrix_size)]
+        self.pixels = np.zeros((matrix_size, matrix_size, 3), dtype=np.uint8)
 
-    def set_formmated_entries(self, formmated_entries):
+    def set_formmated_entries(self, formmated_entries: List[GlucoseItem]):
         self.formmated_entries = formmated_entries
 
-    def set_formmated_treatments(self, formmated_treatments):
+    def set_formmated_treatments(self, formmated_treatments: List[TreatmentItem | ExerciseItem]):
         self.formmated_treatments = formmated_treatments
 
     def set_arrow(self, arrow: str):
@@ -43,7 +43,7 @@ class PixelMatrix:
         for y in range(self.matrix_size):
             for x in range(self.matrix_size):
                 self.pixels[y][x] = color
-                
+
     def set_interpoleted_pixel(self, x: int, y: int, glucose_start:int, color: ColorType, percentil: float):
         start_y = self.glucose_to_y_coordinate(glucose_start) + 2
         y = start_y + y
@@ -51,13 +51,19 @@ class PixelMatrix:
             interpolated_color = self.interpolate_color(Color.black.rgb, color, percentil, 0, 1)
             self.pixels[y][x] = interpolated_color
 
+    def draw_pattern(self, pattern: np.ndarray, x: int, y: int, color: ColorType):
+        for i in range(pattern.shape[0]):
+            for j in range(pattern.shape[1]):
+                if pattern[i, j]:
+                    self.set_pixel(x + j, y + i, *color)
+
     def draw_vertical_line(self, x: int, color: ColorType, glucose: int, height: int, enable_five=False, blink=False):
         start_y = self.glucose_to_y_coordinate(glucose) + 2
         if start_y + height < self.matrix_size:
             y_max = start_y + height
         else:
             y_max = self.matrix_size
-        
+
         for y in range(start_y, y_max):
             temp_color = color
             if blink:
@@ -132,7 +138,7 @@ class PixelMatrix:
             return "HIGH"
         else:
             return str(glucose)
-    
+
     def is_glucose_out_of_range(self, glucose: int) -> bool:
         return glucose <= 39 or glucose >= 400
 
@@ -142,7 +148,7 @@ class PixelMatrix:
             width += len(digit_patterns()[digit][0])
         return width
 
-    def display_glucose_on_matrix(self, glucose_value: int):
+    def display_glucose_on_matrix(self, glucose_value: int) -> None:
         digit_width, digit_height, spacing = 3, 5, 1
 
         if self.is_glucose_out_of_range(glucose_value):
@@ -162,37 +168,25 @@ class PixelMatrix:
         glucose_diff_str = str(abs(self.glucose_difference))
         glucose_diff_width = len(glucose_diff_str) * (digit_width + spacing)
         total_width = digits_width + arrow_width + signal_width + glucose_diff_width
-        start_x = (self.matrix_size - total_width) // 2
+
+        x_position = (self.matrix_size - total_width) // 2
         y_position = (self.matrix_size - digit_height) // 2 - 13
 
-        x_position = start_x
         for digit in glucose_str:
             digit_pattern = digit_patterns()[digit]
-            for i, row in enumerate(digit_pattern):
-                for j, value in enumerate(row):
-                    if value:
-                        self.set_pixel(x_position + j, y_position + i, *color)
+            self.draw_pattern(digit_pattern, x_position, y_position, color)
             x_position += self.get_digit_width(digit) + spacing
 
-        for i, row in enumerate(arrow_pattern):
-            for j, value in enumerate(row):
-                if value:
-                    self.set_pixel(x_position + j, y_position + i, *color)
+        self.draw_pattern(arrow_pattern, x_position, y_position, color)
         x_position += arrow_width
 
         signal_pattern = signal_patterns()[self.get_glucose_difference_signal()]
-        for i, row in enumerate(signal_pattern):
-            for j, value in enumerate(row):
-                if value:
-                    self.set_pixel(x_position + j, y_position + i, *color)
+        self.draw_pattern(signal_pattern, x_position, y_position, color)
         x_position += signal_width
 
         for digit in glucose_diff_str:
             digit_pattern = digit_patterns()[digit]
-            for i, row in enumerate(digit_pattern):
-                for j, value in enumerate(row):
-                    if value:
-                        self.set_pixel(x_position + j, y_position + i, *color)
+            self.draw_pattern(digit_pattern, x_position, y_position, color)
             x_position += digit_width + spacing
 
     def get_digit_width(self, digit: str) -> int:
@@ -200,13 +194,13 @@ class PixelMatrix:
 
     def display_entries(self, formmated_entries: List[GlucoseItem]):
         self.glucose_plot = [[] for _ in range(self.matrix_size)]
-        
+
         now = datetime.now()
 
         for entry in formmated_entries:
             time_diff_minutes = (now - entry.date).total_seconds() / 60
             idx = int(time_diff_minutes // 5)
-            
+
             if 0 <= idx < self.matrix_size:
                 self.glucose_plot[idx].append(entry.glucose)
 
@@ -218,13 +212,12 @@ class PixelMatrix:
                 r, g, b = self.determine_color(median_glucose)
                 self.set_pixel(x, y, r, g, b)
 
-    def get_low_brightness_pixels(self):
+    def get_low_brightness_pixels(self) -> List[List[ColorType]]:
         brightness = self.get_brightness_on_hour()
-        low_brightness_pixels = [[(0, 0, 0) for _ in range(self.matrix_size)] for _ in range(self.matrix_size)]
-
-        for x in range(0, self.matrix_size):
-            for y in range(0, self.matrix_size):
-                low_brightness_pixels[y][x] = self.fade_color(self.get_pixel(x, y), brightness)
+        low_brightness_pixels = [
+            [self.fade_color(self.get_pixel(x, y), brightness) for x in range(self.matrix_size)]
+            for y in range(self.matrix_size)
+        ]
 
         return low_brightness_pixels
 
@@ -246,7 +239,7 @@ class PixelMatrix:
             writer = png.Writer(self.matrix_size, self.matrix_size, greyscale=False) # type: ignore
             writer.write(f, png_matrix)
         logging.info(f"Image generated and saved as {output_file}.")
-        
+
     def generate_timer_gif(self, output_file=os.path.join("temp", "output_gif.gif")):
         frame_files = []
         frame_files.append(os.path.join("temp", "frame-0.png"))
@@ -285,7 +278,7 @@ class PixelMatrix:
             return self.night_brightness
         else:
             return 1.0
-        
+
     def determine_color(self, glucose: float, entry_type=EntrieEnum) -> ColorType:
         if entry_type == EntrieEnum.MBG:
             return Color.white.rgb

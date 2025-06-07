@@ -23,18 +23,18 @@ class Color(Enum):
     blue   = (40, 150, 125)
     orange = (245, 70, 0)
     black  = (0,0,0)
-    
+
     @property
     def rgb(self) -> ColorType:
         return ColorType(*self.value)
-    
+
 class GlucoseItem:
     def __init__(self, type: EntrieEnum, glucose: int, date: datetime, direction: str = ''):
         self.type: EntrieEnum = type
         self.glucose: int = glucose
         self.date: datetime = date 
         self.direction: str = direction
-        
+
     def __str__(self):
         return f"GlucoseItem (type='{self.type}', date='{self.date}', glucose={self.glucose})"
 

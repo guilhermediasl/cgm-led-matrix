@@ -104,7 +104,7 @@ class GlucoseMatrixDisplay:
             side_by_side.show()
 
             return
-        
+
         for _ in range(1,5):
             try:
                 result = subprocess.run(self.command, shell=True, check=True)
@@ -198,7 +198,7 @@ class GlucoseMatrixDisplay:
 
     def build_pixel_matrix(self):
         bolus_with_x_values,carbs_with_x_values,exercises_with_x_values = self.get_treatments_x_values()
-        
+
         exercise_indexes = self.get_exercises_index()
 
         pixelMatrix = PixelMatrix(self.matrix_size,self.min_glucose,self.max_glucose, self.GLUCOSE_LOW, self.GLUCOSE_HIGHT, self.night_brightness)
@@ -258,7 +258,7 @@ class GlucoseMatrixDisplay:
                 self.formmated_entries.append(GlucoseItem(EntrieEnum.MBG,
                                                   item.get(EntrieEnum.MBG),
                                                   treatment_date))
-            
+
             if len(self.formmated_entries) == self.matrix_size + entries_margin:
                 break
 
