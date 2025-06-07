@@ -128,7 +128,7 @@ class GlucoseMatrixDisplay:
                     logging.info("Old or missing data detected, updating to no data image.")
                     self.update_glucose_command(os.path.join('images', 'nocgmdata.png'))
                     self.run_command()
-                elif ping_json.get("_id") != self.newer_id or self.is_old_data(ping_json, 60 * 1000 * 6):
+                elif ping_json.get("_id") != self.newer_id:
                     logging.info("New glucose data detected, updating display.")
                     self.json_entries_data = self.fetch_json_data(self.url_entries)
                     self.update_glucose_command()
