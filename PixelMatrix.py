@@ -265,7 +265,7 @@ class PixelMatrix:
         frames[0].save(
             output_file,
             save_all=True,
-            append_images=frames[1:],
+            append_images=frames[:],
             duration=60000,  # 1 minute in milliseconds
             loop=0
         )
