@@ -85,7 +85,7 @@ class GlucoseMatrixDisplay:
                 self.command = f"./idotmatrix/run_in_venv.sh --address {self.ip} {type_comand} {output_path}"
             
             if self.output_type == "gif":
-                self.command += "--process-gif"
+                self.command = self.command + " --process-gif"
         logging.info(f"Command updated: {self.command}")
 
     def run_command(self):
