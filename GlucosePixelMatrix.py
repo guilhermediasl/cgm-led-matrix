@@ -122,7 +122,7 @@ class GlucoseMatrixDisplay:
         while True:
             try:
                 ping_json = self.fetch_json_data(self.url_ping_entries)[0]
-                if not ping_json or self.is_old_data(ping_json, self.max_time):
+                if not ping_json or self.is_old_data(ping_json, self.max_time, logging_enabled=True):
                     if "nocgmdata.png" in self.command:
                         continue
                     logging.info("Old or missing data detected, updating to no data image.")
@@ -289,7 +289,7 @@ class GlucoseMatrixDisplay:
     def get_glucose_difference_signal(self):
         return '-' if self.glucose_difference < 0 else '+'
 
-    def is_old_data(self, json, max_time):
+    def is_old_data(self, json, max_time, logging_enabled=False):
         created_at_str = json.get('sysTime')
 
         if created_at_str is None:
@@ -305,10 +305,11 @@ class GlucoseMatrixDisplay:
         minutes = int(time_difference_sec // 60)
         seconds = int(time_difference_sec % 60)
 
-        logging.info(f"The data is {minutes:02d}:{seconds:02d} old.")
+        if logging_enabled:
+            logging.info(f"The data is {minutes:02d}:{seconds:02d} old.")
 
         return time_difference_ms > max_time
-    
+
 
     def unblock_bluetooth(self):
         try:
