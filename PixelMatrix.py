@@ -266,7 +266,7 @@ class PixelMatrix:
             output_file,
             save_all=True,
             append_images=frames[1:],
-            duration=60000,  # 1 minute in milliseconds
+            duration=(30000,60000,60000,60000,60000,60000),  # 30 seconds for the first frame, 1 minute for the others
             loop=None
         )
 
