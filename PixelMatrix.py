@@ -267,7 +267,7 @@ class PixelMatrix:
             save_all=True,
             append_images=frames[1:],
             duration=60000,  # 1 minute in milliseconds
-            loop=0
+            loop=None
         )
 
     def glucose_to_y_coordinate(self, glucose: int) -> int:
