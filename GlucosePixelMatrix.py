@@ -261,21 +261,21 @@ class GlucoseMatrixDisplay:
             time = datetime.datetime.strptime(item.get("created_at"), "%Y-%m-%dT%H:%M:%S.%fZ") + datetime.timedelta(minutes=item.get('utcOffset', 0))
             if 'xDrip4iOS' in item.get("enteredBy"): 
                 time += datetime.timedelta(minutes= -180)
-            if item.get("eventType") == TreatmentEnum.CARBS:
+            if item.get("eventType") == TreatmentEnum.CARBS.value:
                 if not item.get("carbs"):
                     continue
                 self.formmated_treatments.append(TreatmentItem(item.get("_id"),
                                                                     TreatmentEnum.CARBS,
                                                                     time,
                                                                     item.get("carbs")))
-            elif item.get("eventType") == TreatmentEnum.BOLUS:
+            elif item.get("eventType") == TreatmentEnum.BOLUS.value:
                 if not item.get("insulin"):
                     continue
                 self.formmated_treatments.append(TreatmentItem(item.get("_id"),
                                                                     TreatmentEnum.BOLUS,
                                                                     time,
                                                                     item.get("insulin")))
-            elif item.get("eventType") == TreatmentEnum.EXERCISE:
+            elif item.get("eventType") == TreatmentEnum.EXERCISE.value:
                 if not item.get("duration"):
                     continue
                 self.formmated_treatments.append(ExerciseItem(TreatmentEnum.EXERCISE,

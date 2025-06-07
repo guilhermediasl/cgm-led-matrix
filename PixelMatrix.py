@@ -8,7 +8,7 @@ import pytz
 from PIL import Image
 import os
 from patterns import digit_patterns, arrow_patterns, signal_patterns
-from util import Color, EntrieEnum, GlucoseItem, TreatmentEnum, TreatmentItem
+from util import Color, EntrieEnum, GlucoseItem, TreatmentEnum, TreatmentItem, ColorType
 
 class PixelMatrix:
     def __init__(self, matrix_size: int, min_glucose: int, max_glucose: int, GLUCOSE_LOW, GLUCOSE_HIGH, night_brightness):
@@ -18,7 +18,7 @@ class PixelMatrix:
         self.GLUCOSE_LOW = GLUCOSE_LOW
         self.GLUCOSE_HIGH = GLUCOSE_HIGH
         self.night_brightness = night_brightness
-        self.pixels = [[(0, 0, 0) for _ in range(matrix_size)] for _ in range(matrix_size)]
+        self.pixels = [[ColorType(0,0,0) for _ in range(matrix_size)] for _ in range(matrix_size)]
 
     def set_formmated_entries(self, formmated_entries):
         self.formmated_entries = formmated_entries
@@ -34,9 +34,9 @@ class PixelMatrix:
 
     def set_pixel(self, x: int, y: int, r: int, g: int, b: int):
         if 0 <= x < self.matrix_size and 0 <= y < self.matrix_size:
-            self.pixels[y][x] = (r, g, b)
+            self.pixels[y][x] = ColorType(r, g, b)
 
-    def get_pixel(self, x: int, y: int) -> tuple[int, int, int]:
+    def get_pixel(self, x: int, y: int) -> ColorType:
         return self.pixels[y][x]
 
     def paint_background(self, color):
@@ -44,14 +44,14 @@ class PixelMatrix:
             for x in range(self.matrix_size):
                 self.pixels[y][x] = color
                 
-    def set_interpoleted_pixel(self, x: int, y: int, glucose_start:int, color: tuple[int, int, int], percentil: float):
+    def set_interpoleted_pixel(self, x: int, y: int, glucose_start:int, color: ColorType, percentil: float):
         start_y = self.glucose_to_y_coordinate(glucose_start) + 2
         y = start_y + y
         if 0 <= x < self.matrix_size and 0 <= y < self.matrix_size:
             interpolated_color = self.interpolate_color(Color.black.rgb, color, percentil, 0, 1)
             self.pixels[y][x] = interpolated_color
 
-    def draw_vertical_line(self, x: int, color: tuple[int, int, int], glucose: int, height: int, enable_five=False, blink=False):
+    def draw_vertical_line(self, x: int, color: ColorType, glucose: int, height: int, enable_five=False, blink=False):
         start_y = self.glucose_to_y_coordinate(glucose) + 2
         if start_y + height < self.matrix_size:
             y_max = start_y + height
@@ -69,7 +69,7 @@ class PixelMatrix:
 
             self.set_pixel(x, y, *temp_color)
 
-    def draw_horizontal_line(self, glucose: int, color: tuple[int, int, int], start_x: int, finish_x: int):
+    def draw_horizontal_line(self, glucose: int, color: ColorType, start_x: int, finish_x: int):
         y = self.glucose_to_y_coordinate(glucose) + 1
         finish_x = min(start_x + finish_x, self.matrix_size)
         start_x = max(start_x, 0)
@@ -286,7 +286,7 @@ class PixelMatrix:
         else:
             return 1.0
         
-    def determine_color(self, glucose: float, entry_type=EntrieEnum) -> tuple[int, int, int]:
+    def determine_color(self, glucose: float, entry_type=EntrieEnum) -> ColorType:
         if entry_type == EntrieEnum.MBG:
             return Color.white.rgb
 
@@ -299,7 +299,7 @@ class PixelMatrix:
         else:
             return Color.green.rgb
 
-    def interpolate_color(self, low_color: tuple[int, int, int], high_color: tuple[int, int, int], value: float, min_value: int, max_value: int) -> tuple[int, int, int]:
+    def interpolate_color(self, low_color: ColorType, high_color: ColorType, value: float, min_value: int, max_value: int) -> ColorType:
         if value < min_value:
             value = min_value
         elif value > max_value:
@@ -311,7 +311,7 @@ class PixelMatrix:
         g = int(low_color[1] + t * (high_color[1] - low_color[1]))
         b = int(low_color[2] + t * (high_color[2] - low_color[2]))
 
-        return (r, g, b)
+        return ColorType(r, g, b)
 
     def get_glucose_difference_signal(self) -> str:
         return '-' if self.glucose_difference < 0 else '+'
@@ -333,7 +333,7 @@ class PixelMatrix:
     def is_five_apart(self, init: int, current: int) -> bool:
         return (current - init + 1) % 5 == 0
 
-    def fade_color(self, color: tuple[int, int, int], percentil: float) -> tuple[int, int, int]:
+    def fade_color(self, color: ColorType, percentil: float) -> ColorType:
         corrected_color = []
 
         # Smooth the boost more aggressively toward low percentils
@@ -350,4 +350,4 @@ class PixelMatrix:
             corrected = round(item * percentil * correction_factors[idx])
             corrected_color.append(min(255, max(0, corrected)))
 
-        return tuple(corrected_color)
+        return ColorType(*corrected_color)

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Tuple
+from typing import Tuple, NamedTuple
 
 class TreatmentEnum(Enum):
     BOLUS = 'Bolus'
@@ -10,7 +10,10 @@ class TreatmentEnum(Enum):
 class EntrieEnum(str, Enum):
     SGV = 'sgv'
     MBG = 'mbg'
-
+class ColorType(NamedTuple):
+    r: int
+    g: int
+    b: int
 class Color(Enum):
     red    = (255, 20, 10)
     green  = (70, 167, 10)
@@ -22,8 +25,8 @@ class Color(Enum):
     black  = (0,0,0)
     
     @property
-    def rgb(self) -> Tuple[int, int, int]:
-        return self.value
+    def rgb(self) -> ColorType:
+        return ColorType(*self.value)
     
 class GlucoseItem:
     def __init__(self, type: EntrieEnum, glucose: int, date: datetime, direction: str = ''):
