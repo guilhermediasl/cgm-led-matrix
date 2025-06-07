@@ -76,13 +76,16 @@ class GlucoseMatrixDisplay:
             else:
                 self.pixelMatrix.generate_timer_gif()
                 output_path = os.path.join("temp", "output_gif.gif")
-                type_comand = "--image true --set-gif"
+                type_comand = "--set-gif"
             self.reset_formmated_jsons()
 
             if self.os == 'windows':
                 self.command = f"idotmatrix/run_in_venv.bat --address {self.ip} {type_comand} {output_path}"
             else:
                 self.command = f"./idotmatrix/run_in_venv.sh --address {self.ip} {type_comand} {output_path}"
+            
+            if self.output_type == "gif":
+                self.command += "--process-gif"
         logging.info(f"Command updated: {self.command}")
 
     def run_command(self):
