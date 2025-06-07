@@ -124,6 +124,7 @@ class GlucoseMatrixDisplay:
             try:
                 ping_json = self.fetch_json_data(self.url_ping_entries)[0]
                 time_since_last_comunication = (datetime.datetime.now() - last_comunication).total_seconds()
+                logging.info(f"Time since last communication: {time_since_last_comunication:.2f} seconds")
                 if not ping_json or self.is_old_data(ping_json, self.max_time, logging_enabled=True):
                     if "nocgmdata.png" in self.command:
                         continue
