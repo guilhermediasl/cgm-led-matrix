@@ -76,7 +76,7 @@ class GlucoseMatrixDisplay:
             else:
                 self.pixelMatrix.generate_timer_gif()
                 output_path = os.path.join("temp", "output_gif.gif")
-                type_comand = "--set-gif"
+                type_comand = "--image true --set-gif"
             self.reset_formmated_jsons()
 
             if self.os == 'windows':
