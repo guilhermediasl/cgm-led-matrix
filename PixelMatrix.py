@@ -169,7 +169,7 @@ class PixelMatrix:
         glucose_diff_width = len(glucose_diff_str) * (digit_width + spacing)
         total_width = digits_width + arrow_width + signal_width + glucose_diff_width
 
-        x_position = (self.matrix_size - total_width) // 2
+        x_position = (self.matrix_size - total_width) // 2 + 1
         y_position = (self.matrix_size - digit_height) // 2 - 13
 
         for digit in glucose_str:
@@ -226,14 +226,13 @@ class PixelMatrix:
         brightness = self.get_brightness_on_hour()
 
         if brightness != 1.0:
-            low_brightness_pixels = self.get_low_brightness_pixels()
-            png_matrix = []
-            for row in low_brightness_pixels:
-                png_matrix.append([val for pixel in row for val in pixel])
+            pixel_matrix = self.get_low_brightness_pixels()
         else:
-            png_matrix = []
-            for row in self.pixels:
-                png_matrix.append([val for pixel in row for val in pixel])
+            pixel_matrix = self.pixels
+
+        png_matrix = []
+        for row in pixel_matrix:
+            png_matrix.append([val for pixel in row for val in pixel])
 
         with open(output_file, "wb") as f:
             writer = png.Writer(self.matrix_size, self.matrix_size, greyscale=False) # type: ignore
@@ -242,11 +241,13 @@ class PixelMatrix:
 
     def generate_timer_gif(self, output_file=os.path.join("temp", "output_gif.gif")):
         frame_files = []
-        frame_files.append(os.path.join("temp", "frame-0.png"))
+        first_frame_path = os.path.join("temp", "frame-0.png")
+        frame_files.append(first_frame_path)
+
         for index in range(1,6):
             self.set_pixel(0, index - 1, *self.fade_color(Color.white.rgb, 0.1))
 
-        self.generate_image("temp/frame-0.png")
+        self.generate_image(first_frame_path)
 
         for index in range(1,6):
             self.set_pixel(0, index - 1, *self.fade_color(Color.purple.rgb, 0.8))
