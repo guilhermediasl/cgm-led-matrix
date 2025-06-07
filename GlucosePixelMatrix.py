@@ -119,21 +119,25 @@ class GlucoseMatrixDisplay:
 
     def run_command_in_loop(self):
         logging.info("Starting command loop.")
+        last_comunication = datetime.datetime.now()
         while True:
             try:
                 ping_json = self.fetch_json_data(self.url_ping_entries)[0]
+                time_since_last_comunication = (datetime.datetime.now() - last_comunication).total_seconds()
                 if not ping_json or self.is_old_data(ping_json, self.max_time, logging_enabled=True):
                     if "nocgmdata.png" in self.command:
                         continue
                     logging.info("Old or missing data detected, updating to no data image.")
                     self.update_glucose_command(os.path.join('images', 'nocgmdata.png'))
                     self.run_command()
-                elif ping_json.get("_id") != self.newer_id:
+
+                elif ping_json.get("_id") != self.newer_id or time_since_last_comunication > 650:
                     logging.info("New glucose data detected, updating display.")
                     self.json_entries_data = self.fetch_json_data(self.url_entries)
                     self.update_glucose_command()
                     self.run_command()
                     self.newer_id = ping_json.get("_id")
+                    last_comunication = datetime.datetime.now()
                 time.sleep(5)
             except Exception as e:
                 logging.error(f"Error in the loop: {e}")
