@@ -1,7 +1,7 @@
 import math
 import os
 import subprocess
-import cv2
+from PIL import Image, ImageEnhance
 import numpy as np
 import requests
 import time
@@ -88,20 +88,21 @@ class GlucoseMatrixDisplay:
     def run_command(self):
         logging.info(f"Running command: {self.command}")
         if self.image_out != "led matrix":
-            img = cv2.imread(os.path.join("temp", "output_image.png"))
-            bright_img = cv2.add(img, np.ones(img.shape, dtype="uint8") * 50)
+            img_path = os.path.join("temp", "output_image.png")
+            img = Image.open(img_path)
+
+            # Brighten the image
+            enhancer = ImageEnhance.Brightness(img)
+            bright_img = enhancer.enhance(1.5)  # Increase brightness by 50%
 
             # Concatenate images horizontally
-            side_by_side = np.hstack((img, bright_img))
+            side_by_side = Image.new('RGB', (img.width * 2, img.height))
+            side_by_side.paste(img, (0, 0))
+            side_by_side.paste(bright_img, (img.width, 0))
 
-            # Display the concatenated image in fullscreen
-            cv2.namedWindow('Led Matrix', cv2.WND_PROP_FULLSCREEN)
-            cv2.setWindowProperty('Led Matrix', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-            cv2.imshow('Led Matrix', side_by_side)
+            # Display the concatenated image
+            side_by_side.show()
 
-            # Wait until a key is pressed
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
             return
         
         for _ in range(1,5):
