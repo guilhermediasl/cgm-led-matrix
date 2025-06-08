@@ -87,7 +87,7 @@ class GlucoseMatrixDisplay:
             if self.os == 'windows':
                 self.command = f"idotmatrix/run_in_venv.bat --address {self.ip} {type_command} {output_path}"
             else:
-                self.command = f"./idotmatrix/run_in_venv.sh --address {self.ip} {type_command} {output_path} --set-brightness {self.night_brightness}"
+                self.command = f"./idotmatrix/run_in_venv.sh --address {self.ip} {type_command} {output_path} --set-brightness 10"
         logging.info(f"Command updated: {self.command}")
 
     def run_command(self):
