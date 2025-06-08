@@ -32,7 +32,7 @@ class GlucoseMatrixDisplay:
         self.os = self.config.get('os', 'linux').lower()
         self.image_out = self.config.get('image out', 'led matrix')
         self.output_type = self.config.get("output type")
-        self.night_brightness = float(self.config.get('night_brightness', 0.3))
+        self.night_brightness = self.config.get('night_brightness', 0.3)
         self.arrow = ''
         self.glucose_difference = 0
         self.first_value = 0
