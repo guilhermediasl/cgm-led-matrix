@@ -148,7 +148,7 @@ class GlucoseMatrixDisplay:
                     self.update_glucose_command(self.NO_DATA_IMAGE_PATH)
                     self.run_command()
 
-                elif ping_json.get("_id") != self.newer_id or time_since_last_comunication > 650:
+                elif ping_json.get("_id") != self.newer_id or time_since_last_comunication > 330:
                     logging.info("New glucose data detected, updating display.")
                     self.json_entries_data = self.fetch_json_data(self.url_entries)
                     self.update_glucose_command()
