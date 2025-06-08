@@ -78,6 +78,7 @@ class GlucoseMatrixDisplay:
                 output_path = os.path.join("temp", "output_gif.gif")
                 type_comand = "--set-gif"
             self.reset_formmated_jsons()
+            logging.info(f"The {self.output_type} got generated and saved as {output_path if self.output_type == 'image' else 'temp/output_gif.gif'}.")
 
             if self.os == 'windows':
                 self.command = f"idotmatrix/run_in_venv.bat --address {self.ip} {type_comand} {output_path}"

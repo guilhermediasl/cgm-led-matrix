@@ -237,7 +237,6 @@ class PixelMatrix:
         with open(output_file, "wb") as f:
             writer = png.Writer(self.matrix_size, self.matrix_size, greyscale=False) # type: ignore
             writer.write(f, png_matrix)
-        logging.info(f"Image generated and saved as {output_file}.")
 
     def generate_timer_gif(self, output_file=os.path.join("temp", "output_gif.gif")):
         frame_files = []
