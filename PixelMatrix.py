@@ -222,7 +222,6 @@ class PixelMatrix:
         return low_brightness_pixels
 
     def generate_image(self, output_file="output_image.png"):
-        logging.info("Generating image.")
         brightness = self.get_brightness_on_hour()
 
         if brightness != 1.0:
