@@ -42,7 +42,7 @@ class GlucoseMatrixDisplay:
         self.iob_list: List[float] = []
         self.newer_id = None
         self.command = ''
-        self.last_nightstate = self.get_nightmode()
+        self.last_nightstate = None
         if self.image_out == "led matrix" and self.os != "windows": self.unblock_bluetooth()
 
         self.NO_DATA_IMAGE_PATH = os.path.join('images', 'nocgmdata.png')
@@ -130,18 +130,12 @@ class GlucoseMatrixDisplay:
     def run_command_in_loop(self):
         logging.info("Starting command loop.")
         last_comunication = datetime.datetime.now()
-        self.run_set_brightness_command()
-        self.last_nightstate = self.get_nightmode()
         
         while True:
             try:
                 ping_json = self.fetch_json_data(self.url_ping_entries)[0]
                 time_since_last_comunication = (datetime.datetime.now() - last_comunication).total_seconds()
                 logging.info(f"Time since last communication: {time_since_last_comunication:.2f} seconds")
-                
-                if self.has_dayshift_change(self.last_nightstate):
-                    self.run_set_brightness_command()
-                    self.last_nightstate = self.get_nightmode()
 
                 if not ping_json or self.is_old_data(ping_json, self.max_time, logging_enabled=True):
                     if self.NO_DATA_IMAGE_PATH in self.command:
@@ -157,6 +151,10 @@ class GlucoseMatrixDisplay:
                     self.run_command()
                     self.newer_id = ping_json.get("_id")
                     last_comunication = datetime.datetime.now()
+
+                if not self.last_nightstate or self.has_dayshift_change(self.last_nightstate):
+                    self.run_set_brightness_command()
+                    self.last_nightstate = self.get_nightmode()
                 time.sleep(5)
             except Exception as e:
                 logging.error(f"Error in the loop: {e}")
