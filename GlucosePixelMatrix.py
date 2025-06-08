@@ -45,7 +45,7 @@ class GlucoseMatrixDisplay:
         self.command = ''
         if self.image_out == "led matrix" and self.os != "windows": self.unblock_bluetooth()
 
-    def load_config(self, config_path):
+    def load_config(self, config_path) -> dict:
         try:
             logging.info(f"Loading configuration from {config_path}")
             with open(config_path, 'r') as file:

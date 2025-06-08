@@ -19,6 +19,7 @@ class Color(Enum):
     green  = (70, 167, 10)
     yellow = (244, 170, 0)
     purple = (250, 0, 105)
+    pink   = (250, 100, 120)
     white  = (240, 180, 70)
     blue   = (40, 150, 125)
     cyan   = (150, 220, 100)
