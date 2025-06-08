@@ -221,12 +221,8 @@ class PixelMatrix:
         return low_brightness_pixels
 
     def generate_image(self, output_file="output_image.png"):
-        brightness = self.get_brightness_on_hour()
 
-        if False:
-            pixel_matrix = self.get_low_brightness_pixels()
-        else:
-            pixel_matrix = self.pixels
+        pixel_matrix = self.pixels
 
         png_matrix = []
         for row in pixel_matrix:
