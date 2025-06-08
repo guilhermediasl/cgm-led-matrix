@@ -42,6 +42,7 @@ class GlucoseMatrixDisplay:
         self.iob_list: List[float] = []
         self.newer_id = None
         self.command = ''
+        self.last_nightstate = self.get_nightmode()
         if self.image_out == "led matrix" and self.os != "windows": self.unblock_bluetooth()
 
         self.NO_DATA_IMAGE_PATH = os.path.join('images', 'nocgmdata.png')
@@ -90,6 +91,8 @@ class GlucoseMatrixDisplay:
                 self.command = f"./idotmatrix/run_in_venv.sh --address {self.ip} {type_command} {output_path}"
         logging.info(f"Command updated: {self.command}")
 
+
+
     def run_command(self):
         logging.info(f"Running command: {self.command}")
         if self.image_out != "led matrix":
@@ -121,14 +124,25 @@ class GlucoseMatrixDisplay:
                 logging.error(f"Command failed with error: {e}")
                 time.sleep(2)
 
+    def set_command(self, command: str):
+        self.command = command
+
     def run_command_in_loop(self):
         logging.info("Starting command loop.")
         last_comunication = datetime.datetime.now()
+        self.run_set_brightness_command()
+        self.last_nightstate = self.get_nightmode()
+        
         while True:
             try:
                 ping_json = self.fetch_json_data(self.url_ping_entries)[0]
                 time_since_last_comunication = (datetime.datetime.now() - last_comunication).total_seconds()
                 logging.info(f"Time since last communication: {time_since_last_comunication:.2f} seconds")
+                
+                if self.has_dayshift_change(self.last_nightstate):
+                    self.run_set_brightness_command()
+                    self.last_nightstate = self.get_nightmode()
+
                 if not ping_json or self.is_old_data(ping_json, self.max_time, logging_enabled=True):
                     if self.NO_DATA_IMAGE_PATH in self.command:
                         continue
@@ -147,6 +161,15 @@ class GlucoseMatrixDisplay:
             except Exception as e:
                 logging.error(f"Error in the loop: {e}")
                 time.sleep(60)
+
+    def run_set_brightness_command(self):
+        brightness = self.night_brightness if self.get_nightmode() else 100
+        if self.os == 'windows':
+            command = f"idotmatrix/run_in_venv.bat --address {self.ip} --set-brightness {brightness}"
+        else:
+            command = f"./idotmatrix/run_in_venv.sh --address {self.ip} --set-brightness {brightness}"
+        self.set_command(command)
+        self.run_command()
 
     def reset_formmated_jsons(self):
         self.formmated_entries = []
@@ -199,6 +222,14 @@ class GlucoseMatrixDisplay:
         self.set_glucose_difference()
         self.set_arrow()
         self.iob_list = self.get_iob()
+        
+    def has_dayshift_change(self, previus_nightmode: bool):
+        nightmode = self.get_nightmode()
+        return nightmode != previus_nightmode
+        
+    def get_nightmode(self) -> bool:
+        current_time = datetime.datetime.now()
+        return current_time.hour < 6 or current_time.hour > 21
 
     def build_pixel_matrix(self):
         bolus_with_x_values,carbs_with_x_values,exercises_with_x_values = self.get_treatments_x_values()
