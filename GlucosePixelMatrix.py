@@ -137,6 +137,10 @@ class GlucoseMatrixDisplay:
                 time_since_last_comunication = (datetime.datetime.now() - last_comunication).total_seconds()
                 logging.info(f"Time since last communication: {time_since_last_comunication:.2f} seconds")
 
+                if not self.last_nightstate or self.has_dayshift_change(self.last_nightstate):
+                    self.run_set_brightness_command()
+                    self.last_nightstate = self.get_nightmode()
+
                 if not ping_json or self.is_old_data(ping_json, self.max_time, logging_enabled=True):
                     if self.NO_DATA_IMAGE_PATH in self.command:
                         continue
@@ -151,10 +155,6 @@ class GlucoseMatrixDisplay:
                     self.run_command()
                     self.newer_id = ping_json.get("_id")
                     last_comunication = datetime.datetime.now()
-
-                if not self.last_nightstate or self.has_dayshift_change(self.last_nightstate):
-                    self.run_set_brightness_command()
-                    self.last_nightstate = self.get_nightmode()
                 time.sleep(5)
             except Exception as e:
                 logging.error(f"Error in the loop: {e}")
