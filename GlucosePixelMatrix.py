@@ -137,7 +137,7 @@ class GlucoseMatrixDisplay:
                 time_since_last_comunication = (datetime.datetime.now() - last_comunication).total_seconds()
                 logging.info(f"Time since last communication: {time_since_last_comunication:.2f} seconds")
 
-                if not self.last_nightstate or self.has_dayshift_change(self.last_nightstate):
+                if self.last_nightstate == None or self.has_dayshift_change(self.last_nightstate):
                     self.run_set_brightness_command()
                     self.last_nightstate = self.get_nightmode()
 
