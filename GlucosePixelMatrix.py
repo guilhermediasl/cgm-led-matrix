@@ -2,7 +2,6 @@ import math
 import os
 import subprocess
 from PIL import Image, ImageEnhance
-import numpy as np
 import requests
 import time
 import json
@@ -45,6 +44,11 @@ class GlucoseMatrixDisplay:
         self.command = ''
         if self.image_out == "led matrix" and self.os != "windows": self.unblock_bluetooth()
 
+        self.NO_DATA_IMAGE_PATH = os.path.join('images', 'nocgmdata.png')
+        self.NO_WIFI_IMAGE_PATH = os.path.join('images', 'no_wifi.png')
+        self.OUTPUT_IMAGE_PATH = os.path.join("temp", "output_image.png")
+        self.OUTPUT_GIF_PATH = os.path.join("temp", "output_gif.gif")
+
     def load_config(self, config_path) -> dict:
         try:
             logging.info(f"Loading configuration from {config_path}")
@@ -68,29 +72,28 @@ class GlucoseMatrixDisplay:
 
             if image_path:
                 output_path = image_path
-                type_comand = "--image true --set-image"
             elif self.output_type == "image":
-                output_path = os.path.join("temp", "output_image.png")
+                output_path = self.OUTPUT_IMAGE_PATH
                 self.pixelMatrix.generate_image(output_path)
-                type_comand = "--image true --set-image"
             else:
                 self.pixelMatrix.generate_timer_gif()
-                output_path = os.path.join("temp", "output_gif.gif")
-                type_comand = "--set-gif"
+                output_path = self.OUTPUT_GIF_PATH
+
+            type_command = "--image true --set-image" if image_path or self.output_type == "image" else "--set-gif"
+
             self.reset_formmated_jsons()
-            logging.info(f"The {self.output_type} got generated and saved as {output_path if self.output_type == 'image' else 'temp/output_gif.gif'}.")
+            logging.info(f"Output generated and saved as {output_path}")
 
             if self.os == 'windows':
-                self.command = f"idotmatrix/run_in_venv.bat --address {self.ip} {type_comand} {output_path}"
+                self.command = f"idotmatrix/run_in_venv.bat --address {self.ip} {type_command} {output_path}"
             else:
-                self.command = f"./idotmatrix/run_in_venv.sh --address {self.ip} {type_comand} {output_path}"
+                self.command = f"./idotmatrix/run_in_venv.sh --address {self.ip} {type_command} {output_path} --set-brightness {self.night_brightness}"
         logging.info(f"Command updated: {self.command}")
 
     def run_command(self):
         logging.info(f"Running command: {self.command}")
         if self.image_out != "led matrix":
-            img_path = os.path.join("temp", "output_image.png")
-            img = Image.open(img_path)
+            img = Image.open(self.OUTPUT_IMAGE_PATH)
 
             # Brighten the image
             enhancer = ImageEnhance.Brightness(img)
@@ -127,10 +130,10 @@ class GlucoseMatrixDisplay:
                 time_since_last_comunication = (datetime.datetime.now() - last_comunication).total_seconds()
                 logging.info(f"Time since last communication: {time_since_last_comunication:.2f} seconds")
                 if not ping_json or self.is_old_data(ping_json, self.max_time, logging_enabled=True):
-                    if "nocgmdata.png" in self.command:
+                    if self.NO_DATA_IMAGE_PATH in self.command:
                         continue
                     logging.info("Old or missing data detected, updating to no data image.")
-                    self.update_glucose_command(os.path.join('images', 'nocgmdata.png'))
+                    self.update_glucose_command(self.NO_DATA_IMAGE_PATH)
                     self.run_command()
 
                 elif ping_json.get("_id") != self.newer_id or time_since_last_comunication > 650:
@@ -161,7 +164,7 @@ class GlucoseMatrixDisplay:
 
             except RemoteDisconnected as e:
                 logging.error(f"Remote end closed connection on attempt {attempt + 1}: {e}")
-                self.update_glucose_command("./images/no_wifi.png")
+                self.update_glucose_command(self.NO_WIFI_IMAGE_PATH)
                 self.run_command()
 
             except requests.exceptions.ConnectionError as e:
@@ -332,57 +335,106 @@ class GlucoseMatrixDisplay:
         return int(minutes_difference)
 
     def get_treatments_x_values(self):
-        bolus_with_x_values = []
-        carbs_with_x_values = []
-        exercises_with_x_values = []
-
         if not self.formmated_entries:
             logging.warning("No glucose entries available.")
-            return bolus_with_x_values,carbs_with_x_values,exercises_with_x_values
+            return [], [], []
 
         newer_entry_time = self.formmated_entries[0].date
         older_entry_time = self.formmated_entries[-1].date
 
+        # Lookup dictionary for entry dates to quickly find the index
+        entry_dates = {entry.date: idx for idx, entry in enumerate(self.formmated_entries)}
+        sorted_dates = sorted(entry_dates.keys())
+
+        bolus_values = []
+        carbs_values = []
+        exercise_values = []
+
         for treatment in self.formmated_treatments:
+            # Skip treatments outside the time window
+            treatment_end_time = (treatment.date + datetime.timedelta(minutes=treatment.amount) 
+                                if treatment.type == TreatmentEnum.EXERCISE else treatment.date)
+            
+            if ((treatment.type == TreatmentEnum.EXERCISE and 
+                (treatment_end_time < older_entry_time or treatment.date > newer_entry_time)) or
+                (treatment.type != TreatmentEnum.EXERCISE and 
+                (treatment.date < older_entry_time or treatment.date > newer_entry_time))):
+                continue
+                
+            # Find closest entry date using binary search
+            closest_date = self._find_closest_date(treatment.date, sorted_dates)
+            
+            # Skip if no close date was found
+            if closest_date is None:
+                continue
+                
+            x_value = entry_dates[closest_date]
+            matrix_x = self.matrix_size - x_value - 1  # Adjust for matrix coordinates
+            
+            # Process by treatment type
             if treatment.type == TreatmentEnum.EXERCISE:
-                if treatment.date + datetime.timedelta(minutes=treatment.amount) < older_entry_time  or treatment.date > newer_entry_time:
-                    continue
+                # Calculate remaining exercise time
+                time_elapsed = max(0, (older_entry_time - treatment.date).total_seconds() / 60)
+                remaining_time = math.ceil(treatment.amount - time_elapsed) if time_elapsed > 0 else treatment.amount
+                
+                exercise_values.append((matrix_x, remaining_time, treatment.type))
+                
+            elif treatment.type == TreatmentEnum.BOLUS:
+                bolus_values.append((matrix_x, treatment.amount, treatment.type))
+                
+            elif treatment.type == TreatmentEnum.CARBS:
+                carbs_values.append((matrix_x, treatment.amount, treatment.type))
+        
+        return bolus_values, carbs_values, exercise_values
+
+    def _find_closest_date(self, target_date, date_list):
+        """
+        Find the closest date to target_date in date_list using binary search.
+        Returns None only if date_list is empty.
+        """
+        if not date_list:
+            return None
+            
+        # Handle edge cases
+        if target_date <= date_list[0]:
+            return date_list[0]
+        if target_date >= date_list[-1]:
+            return date_list[-1]
+        
+        # Binary search
+        left, right = 0, len(date_list) - 1
+        
+        while left <= right:
+            mid = (left + right) // 2
+            if date_list[mid] == target_date:
+                return date_list[mid]
+                
+            if date_list[mid] < target_date:
+                left = mid + 1
             else:
-                if treatment.date < older_entry_time  or treatment.date > newer_entry_time:
-                    continue
-
-            # Calculate the x position based on the closest glucose entry
-            closest_entry = min(self.formmated_entries, key=lambda entry: abs(treatment.date - entry.date))
-            x_value = self.formmated_entries.index(closest_entry)
-
-            if treatment.type == TreatmentEnum.EXERCISE:
-                # Calculate time elapsed in minutes since the treatment started
-                time_elapsed = (older_entry_time - treatment.date).total_seconds() / 60  # in minutes
-
-                if time_elapsed > 0:
-                    # If treatment started before the first entry, calculate remaining time
-                    discount_time = treatment.amount - time_elapsed
-                else:
-                    # Calculate how much treatment time is remaining from the current position
-                    discount_time = 0
-
-                exercises_with_x_values.append((self.matrix_size - x_value - 1,
-                                                math.ceil(treatment.amount - discount_time),
-                                                treatment.type))
-
-            elif treatment.type in (TreatmentEnum.BOLUS, TreatmentEnum.CARBS):
-                # Ensure the treatment falls within the time range covered by glucose entries
-                if older_entry_time <= treatment.date <= newer_entry_time:
-                    if treatment.type == TreatmentEnum.BOLUS:
-                        bolus_with_x_values.append((self.matrix_size - x_value - 1,
-                                                    treatment.amount,
-                                                    treatment.type))
-                    else:
-                        carbs_with_x_values.append((self.matrix_size - x_value - 1,
-                                                    treatment.amount,
-                                                    treatment.type))
-
-        return bolus_with_x_values, carbs_with_x_values, exercises_with_x_values
+                right = mid - 1
+        
+        # After binary search, left is the insertion point
+        # We now know the date must be between dates[left-1] and dates[left]
+        # unless left is at the boundaries
+        
+        # Ensure left is within bounds
+        left = min(max(left, 0), len(date_list) - 1)
+        
+        # If at boundaries, return the boundary value
+        if left == 0:
+            return date_list[0]
+        if left == len(date_list) - 1:
+            return date_list[-1]
+        
+        # Compare distances to determine closest
+        before = date_list[left-1]
+        after = date_list[left]
+        
+        if abs((target_date - before).total_seconds()) <= abs((after - target_date).total_seconds()):
+            return before
+        else:
+            return after
 
     def get_iob(self):
         iob_value = self.json_iob.get("iob", {}).get("iob", None)

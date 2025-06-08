@@ -1,6 +1,7 @@
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Tuple, NamedTuple
+from typing import NamedTuple
 
 class TreatmentEnum(Enum):
     BOLUS = 'Bolus'
@@ -30,40 +31,31 @@ class Color(Enum):
     def rgb(self) -> ColorType:
         return ColorType(*self.value)
 
+@dataclass
 class GlucoseItem:
-    def __init__(self, type: EntrieEnum, glucose: int, date: datetime, direction: str = ''):
-        self.type: EntrieEnum = type
-        self.glucose: int = glucose
-        self.date: datetime = date 
-        self.direction: str = direction
+    type: EntrieEnum
+    glucose: int
+    date: datetime
+    direction: str = ''
 
     def __str__(self):
         return f"GlucoseItem (type='{self.type}', date='{self.date}', glucose={self.glucose})"
 
-    def __repr__(self):
-        return self.__str__()
-
+@dataclass
 class TreatmentItem:
-    def __init__(self, id: str, type: TreatmentEnum, date: datetime, amount: int):
-        self.id: str = id
-        self.type: TreatmentEnum = type
-        self.date: datetime = date
-        self.amount: int = amount
+    id: str
+    type: TreatmentEnum
+    date: datetime
+    amount: int
 
     def __str__(self):
         return f"TreatmentItem(type='{self.type}', date='{self.date}', amount={self.amount})"
 
-    def __repr__(self):
-        return self.__str__()
-
+@dataclass
 class ExerciseItem:
-    def __init__(self, type: TreatmentEnum, date: datetime, amount: int):
-        self.type: TreatmentEnum = type
-        self.date: datetime = date
-        self.amount: int = amount
+    type: TreatmentEnum
+    date: datetime
+    amount: int
 
     def __str__(self):
         return f"ExerciseItem (type='{self.type}', date='{self.date}', amount={self.amount})"
-
-    def __repr__(self):
-        return self.__str__()

@@ -1,5 +1,4 @@
-from datetime import datetime, timedelta
-import logging
+from datetime import datetime
 import math
 from typing import List
 import numpy as np
@@ -8,7 +7,7 @@ import pytz
 from PIL import Image
 import os
 from patterns import digit_patterns, arrow_patterns, signal_patterns
-from util import Color, EntrieEnum, GlucoseItem, TreatmentEnum, TreatmentItem, ColorType, ExerciseItem
+from util import Color, EntrieEnum, GlucoseItem, TreatmentItem, ColorType, ExerciseItem
 
 class PixelMatrix:
     def __init__(self, matrix_size: int, min_glucose: int, max_glucose: int, GLUCOSE_LOW, GLUCOSE_HIGH, night_brightness):
@@ -224,7 +223,7 @@ class PixelMatrix:
     def generate_image(self, output_file="output_image.png"):
         brightness = self.get_brightness_on_hour()
 
-        if brightness != 1.0:
+        if False:
             pixel_matrix = self.get_low_brightness_pixels()
         else:
             pixel_matrix = self.pixels
