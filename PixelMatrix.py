@@ -250,7 +250,7 @@ class PixelMatrix:
         self.generate_image(first_frame_path)
 
         for index in range(1,6):
-            self.set_pixel(0, index - 1, *self.fade_color(Color.purple.rgb, 0.8))
+            self.set_pixel(0, index - 1, *self.fade_color(Color.cyan.rgb, 1))
             frame_filename = os.path.join("temp", f"frame-{index}.png")
             self.generate_image(frame_filename)
             frame_files.append(frame_filename)

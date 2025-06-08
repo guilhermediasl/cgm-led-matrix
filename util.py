@@ -21,8 +21,9 @@ class Color(Enum):
     purple = (250, 0, 105)
     white  = (240, 180, 70)
     blue   = (40, 150, 125)
+    cyan   = (150, 220, 100)
     orange = (245, 70, 0)
-    black  = (0,0,0)
+    black  = (0, 0, 0)
 
     @property
     def rgb(self) -> ColorType:
