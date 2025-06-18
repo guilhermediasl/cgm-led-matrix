@@ -138,6 +138,7 @@ class GlucoseMatrixDisplay:
                 logging.info(f"Time since last communication: {time_since_last_comunication:.2f} seconds")
 
                 if self.last_nightstate == None or self.has_dayshift_change(self.last_nightstate):
+                    self.run_reset_command()
                     self.run_set_brightness_command()
                     self.last_nightstate = self.get_nightmode()
 
@@ -159,6 +160,15 @@ class GlucoseMatrixDisplay:
             except Exception as e:
                 logging.error(f"Error in the loop: {e}")
                 time.sleep(60)
+
+    def run_reset_command(self):
+        logging.info("Running reset command.")
+        if self.os == 'windows':
+            command = f"idotmatrix/run_in_venv.bat --address {self.ip} --reset"
+        else:
+            command = f"./idotmatrix/run_in_venv.sh --address {self.ip} --reset"
+        self.set_command(command)
+        self.run_command()
 
     def run_set_brightness_command(self):
         brightness = self.night_brightness if self.get_nightmode() else 100
