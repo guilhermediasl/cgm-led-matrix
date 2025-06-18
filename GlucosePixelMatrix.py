@@ -95,21 +95,8 @@ class GlucoseMatrixDisplay:
 
     def run_command(self):
         logging.info(f"Running command: {self.command}")
-        if self.image_out != "led matrix":
-            img = Image.open(self.OUTPUT_IMAGE_PATH)
-
-            # Brighten the image
-            enhancer = ImageEnhance.Brightness(img)
-            bright_img = enhancer.enhance(1.5)  # Increase brightness by 50%
-
-            # Concatenate images horizontally
-            side_by_side = Image.new('RGB', (img.width * 2, img.height))
-            side_by_side.paste(img, (0, 0))
-            side_by_side.paste(bright_img, (img.width, 0))
-
-            # Display the concatenated image
-            side_by_side.show()
-
+        if self.image_out != "led matrix":            
+            logging.info("Image output is not 'led matrix', skipping command execution.")
             return
 
         for _ in range(1,5):
