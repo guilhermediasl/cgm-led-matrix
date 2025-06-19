@@ -192,24 +192,41 @@ class PixelMatrix:
         return len(digit_patterns()[digit][0])
 
     def display_entries(self, formmated_entries: List[GlucoseItem]):
-        self.glucose_plot = [[] for _ in range(self.matrix_size)]
-
+        glucose_plot = [[] for _ in range(self.matrix_size)]
         now = datetime.now()
 
         for entry in formmated_entries:
             time_diff_minutes = (now - entry.date).total_seconds() / 60
             idx = int(time_diff_minutes // 5)
-
+            
+            if idx > self.matrix_size - 1:
+                break
+            
             if 0 <= idx < self.matrix_size:
-                self.glucose_plot[idx].append(entry.glucose)
+                glucose_plot[idx].append(entry.glucose)
+            
+        trail_plotted = False
+        for idx, glucose_values in enumerate(glucose_plot):
+            if not glucose_values:
+                continue
+            
+            median_glucose = int(np.average(glucose_values))
+            x = self.matrix_size - idx - 1
+            y = self.glucose_to_y_coordinate(median_glucose)
+            r, g, b = self.determine_color(median_glucose)
+            self.set_pixel(x, y, r, g, b)
+            
+            # Old glucose trail
+            if not trail_plotted:
+                past_idx = x
+                fade_factor = 0.6
+                while past_idx <= self.matrix_size - 1:
+                    past_idx += 1
 
-        for idx, glucose_values in enumerate(self.glucose_plot):
-            if glucose_values:
-                median_glucose = int(np.average(glucose_values))
-                x = self.matrix_size - idx - 1
-                y = self.glucose_to_y_coordinate(median_glucose)
-                r, g, b = self.determine_color(median_glucose)
-                self.set_pixel(x, y, r, g, b)
+                    r, g, b = self.fade_color(ColorType(r, g, b), fade_factor)
+                    if r > 0 or g > 0 or b > 0:
+                        self.set_pixel(past_idx, y, r, g, b)
+                trail_plotted = True
 
     def get_low_brightness_pixels(self) -> List[List[ColorType]]:
         brightness = self.get_brightness_on_hour()
