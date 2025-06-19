@@ -7,12 +7,21 @@ import time
 import json
 import datetime
 import logging
+from logging.handlers import RotatingFileHandler
 from typing import List
 from http.client import RemoteDisconnected
 from util import GlucoseItem, TreatmentItem, ExerciseItem, TreatmentEnum, EntrieEnum
 from PixelMatrix import PixelMatrix
 
-logging.basicConfig(filename='app.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+log_file = 'app.log'
+handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5)
+handler.setFormatter(log_formatter)
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(handler)
+
 
 class GlucoseMatrixDisplay:
     def __init__(self, config_path=os.path.join('led_matrix_configurator', 'config.json'), matrix_size=32, min_glucose=60, max_glucose=180):
