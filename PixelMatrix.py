@@ -219,10 +219,12 @@ class PixelMatrix:
             # Old glucose trail
             if not trail_plotted:
                 past_idx = x
-                fade_factor = 0.6
+                fade_factor = 0.8
+                r, g, b = Color.white.rgb
+                
                 while past_idx <= self.matrix_size - 1:
                     past_idx += 1
-
+                    
                     r, g, b = self.fade_color(ColorType(r, g, b), fade_factor)
                     if r > 0 or g > 0 or b > 0:
                         self.set_pixel(past_idx, y, r, g, b)
