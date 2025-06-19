@@ -283,9 +283,6 @@ class PixelMatrix:
 
         # Generate the first frame (base frame)
         first_frame_path = os.path.join(temp_dir, "frame-0.png")
-        
-        for index in range(1,6):
-            self.set_pixel(0, index - 1, *self.fade_color(Color.white.rgb, 0.1))
         self.generate_image(first_frame_path)
         frame_files.append(first_frame_path)
 
