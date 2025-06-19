@@ -30,18 +30,6 @@ class GlucoseMatrixDisplay:
         self.max_glucose = max_glucose
         self.max_time = 5 * 60 * 1000 * self.matrix_size #milliseconds
         self.config = self.load_config(config_path)
-        self.ip = self.config.get('ip')
-        token = self.config.get('token')
-        self.url_entries = f"{self.config.get('url')}/entries.json?token={token}&count=40"
-        self.url_treatments = f"{self.config.get('url')}/treatments.json?token={token}&count=10"
-        self.url_ping_entries = f"{self.config.get('url')}/entries.json?token={token}&count=1"
-        self.url_iob = f"{self.config.get('url')}/properties/iob?token={token}"
-        self.GLUCOSE_LOW = self.config.get('low bondary glucose')
-        self.GLUCOSE_HIGHT = self.config.get('high bondary glucose')
-        self.os = self.config.get('os', 'linux').lower()
-        self.image_out = self.config.get('image out', 'led matrix')
-        self.output_type = self.config.get("output type")
-        self.night_brightness = self.config.get('night_brightness', 0.3)
         self.arrow = ''
         self.glucose_difference = 0
         self.first_value = 0
@@ -52,12 +40,9 @@ class GlucoseMatrixDisplay:
         self.newer_id = None
         self.command = ''
         self.last_nightstate = None
+        self._load_config_values()
+        self._setup_paths()
         if self.image_out == "led matrix" and self.os != "windows": self.unblock_bluetooth()
-
-        self.NO_DATA_IMAGE_PATH = os.path.join('images', 'nocgmdata.png')
-        self.NO_WIFI_IMAGE_PATH = os.path.join('images', 'no_wifi.png')
-        self.OUTPUT_IMAGE_PATH = os.path.join("temp", "output_image.png")
-        self.OUTPUT_GIF_PATH = os.path.join("temp", "output_gif.gif")
 
     def load_config(self, config_path) -> dict:
         try:
@@ -69,7 +54,27 @@ class GlucoseMatrixDisplay:
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logging.error(f"Error loading configuration file: {e}")
             raise Exception(f"Error loading configuration file: {e}")
+        
+    def _load_config_values(self):
+        self.ip = self.config.get('ip')
+        token = self.config.get('token')
+        self.url_entries = f"{self.config.get('url')}/entries.json?token={token}&count=40"
+        self.url_treatments = f"{self.config.get('url')}/treatments.json?token={token}&count=10"
+        self.url_ping_entries = f"{self.config.get('url')}/entries.json?token={token}&count=1"
+        self.url_iob = f"{self.config.get('url')}/properties/iob?token={token}"
+        self.GLUCOSE_LOW = self.config.get('low bondary glucose')
+        self.GLUCOSE_HIGHT = self.config.get('high bondary glucose')
+        self.os = self.config.get('os', 'linux').lower()
+        self.image_out = self.config.get('image out', 'led matrix')
+        self.output_type = self.config.get("output type")
+        self.night_brightness = self.config.get('night_brightness', 0.3)  
 
+    def _setup_paths(self):
+        self.NO_DATA_IMAGE_PATH = os.path.join('images', 'nocgmdata.png')
+        self.NO_WIFI_IMAGE_PATH = os.path.join('images', 'no_wifi.png')
+        self.OUTPUT_IMAGE_PATH = os.path.join("temp", "output_image.png")
+        self.OUTPUT_GIF_PATH = os.path.join("temp", "output_gif.gif")
+               
     def update_glucose_command(self, image_path=None):
         logging.info("Updating glucose command.")
         self.json_entries_data = self.fetch_json_data(self.url_entries)
