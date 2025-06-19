@@ -94,18 +94,19 @@ class PixelMatrix:
         for id,iob in enumerate(iob_list):
             fractional_iob, integer_iob = math.modf(iob)
             integer_iob = int(integer_iob)
-
+            
+            # Draw integer IOB as a vertical solid line
             self.draw_vertical_line(self.matrix_size - id - 1,
-                                            self.fade_color(Color.blue.rgb, 0.05),
+                                            self.fade_color(Color.blue.rgb, 0.06),
                                             self.GLUCOSE_HIGH,
                                             integer_iob)
 
             if fractional_iob <= 0.1: continue
-
+            # Draw fractional IOB as an interpolated pixel
             self.set_interpoleted_pixel(self.matrix_size - id - 1,
                                                 integer_iob,
                                                 self.GLUCOSE_HIGH,
-                                                self.fade_color(Color.blue.rgb, 0.1),
+                                                self.fade_color(Color.blue.rgb, 0.06),
                                                 fractional_iob)
 
     def draw_carbs(self, carbs_with_x_values: List) -> None:
