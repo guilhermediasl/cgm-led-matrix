@@ -251,29 +251,77 @@ class PixelMatrix:
             writer = png.Writer(self.matrix_size, self.matrix_size, greyscale=False) # type: ignore
             writer.write(f, png_matrix)
 
+    # def generate_timer_gif(self, output_file=os.path.join("temp", "output_gif.gif")):
+    #     frame_files = []
+    #     first_frame_path = os.path.join("temp", "frame-0.png")
+    #     frame_files.append(first_frame_path)
+
+    #     for index in range(1,6):
+    #         self.set_pixel(0, index - 1, *self.fade_color(Color.white.rgb, 0.1))
+
+    #     self.generate_image(first_frame_path)
+
+    #     for index in range(1,6):
+    #         self.set_pixel(0, index - 1, *self.fade_color(Color.pink.rgb, 1))
+    #         frame_filename = os.path.join("temp", f"frame-{index}.png")
+    #         self.generate_image(frame_filename)
+    #         frame_files.append(frame_filename)
+
+    #     frames = [Image.open(frame) for frame in frame_files]
+    #     frames[0].save(
+    #         output_file,
+    #         save_all=True,
+    #         append_images=frames[1:],
+    #         duration=(30000,60000,60000,60000,60000,60000),  # 30 seconds for the first frame, 1 minute for the others
+    #         loop=None
+    #     )
+
     def generate_timer_gif(self, output_file=os.path.join("temp", "output_gif.gif")):
         frame_files = []
-        first_frame_path = os.path.join("temp", "frame-0.png")
+        temp_dir = "temp"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Generate the first frame (base frame)
+        first_frame_path = os.path.join(temp_dir, "frame-0.png")
+        self.generate_image(first_frame_path)
         frame_files.append(first_frame_path)
 
-        for index in range(1,6):
-            self.set_pixel(0, index - 1, *self.fade_color(Color.white.rgb, 0.1))
+        # Generate transparent frames with one visible pixel
+        for index in range(1, 6):
+            transparent_frame = np.zeros((self.matrix_size, self.matrix_size, 4), dtype=np.uint8)  # RGBA fully transparent
+            x, y = 0, index - 1
+            r, g, b = self.fade_color(Color.pink.rgb, 1)
+            transparent_frame[y][x] = [r, g, b, 255]  # Set one pixel to full opacity
 
-        self.generate_image(first_frame_path)
-
-        for index in range(1,6):
-            self.set_pixel(0, index - 1, *self.fade_color(Color.pink.rgb, 1))
-            frame_filename = os.path.join("temp", f"frame-{index}.png")
-            self.generate_image(frame_filename)
+            frame_filename = os.path.join(temp_dir, f"frame-{index}.png")
+            Image.fromarray(transparent_frame, mode="RGBA").save(frame_filename)
             frame_files.append(frame_filename)
 
-        frames = [Image.open(frame) for frame in frame_files]
-        frames[0].save(
+        # Open images and convert to palette with transparency
+        frames = [Image.open(f).convert("RGBA") for f in frame_files]
+        palette_frames = []
+
+        for frame in frames:
+            alpha = frame.getchannel("A")
+            rgb_image = frame.convert("RGB").convert("P", palette=Image.ADAPTIVE, colors=255) # type: ignore
+
+            # Create transparency mask: transparent pixels will get index 255
+            transparent_index = 255
+            mask = Image.eval(alpha, lambda a: 255 if a <= 0 else 0)
+            rgb_image.paste(transparent_index, mask)
+
+            rgb_image.info["transparency"] = transparent_index
+            rgb_image.info["disposal"] = 1
+            palette_frames.append(rgb_image)
+
+        # Save the GIF
+        palette_frames[0].save(
             output_file,
             save_all=True,
-            append_images=frames[1:],
-            duration=(30000,60000,60000,60000,60000,60000),  # 30 seconds for the first frame, 1 minute for the others
-            loop=None
+            append_images=palette_frames[1:],
+            duration=(30000, 60000, 60000, 60000, 60000, 60000),
+            loop=None,
+            disposal=1
         )
 
     def glucose_to_y_coordinate(self, glucose: int) -> int:
