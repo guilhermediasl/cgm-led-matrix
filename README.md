@@ -4,6 +4,7 @@
 ## Overview
 
 The CGM LED Matrix project is designed to display Continuous Glucose Monitoring (CGM) data on iDotMatrix display. It integrates with Nightscout to fetch glucose data and provides a visual representation of glucose trends, treatments, and other relevant information. The project supports both 32x32 pixel displays and offers various customization options.
+![output_gif](https://github.com/user-attachments/assets/643f39f2-11c4-4a5f-9208-9b1c8ba13509)
 
 ## Features
 
