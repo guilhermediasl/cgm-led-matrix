@@ -399,10 +399,12 @@ class PixelMatrix:
         MAX_BOOST = 1.5
         EXPONENT = 8.0
 
-        # Only boost red/green when brightness is low
-        red_green_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** EXPONENT)
+        # Adjust green correction to reduce its intensity at lower values
+        red_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** EXPONENT)
+        green_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** (EXPONENT * 1.2))
+        blue_correction = 1.0
 
-        correction_factors = (red_green_correction, red_green_correction, 1.0)
+        correction_factors = (red_correction, green_correction, blue_correction)
 
         for idx, item in enumerate(color):
             corrected = round(item * percentil * correction_factors[idx])
