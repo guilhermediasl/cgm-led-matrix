@@ -236,12 +236,12 @@ class PixelMatrix:
                 trail_plotted = True
 
     def get_no_data_pixels_amount(self) -> int:
-        amount = 0
-        last_entrys_time = self.formmated_entries[-1].date
-        amount = (datetime.now() - last_entrys_time).total_seconds() // (self.PIXEL_INTERVAL * 60)
-        if amount > 1 and amount < 1.5:
-            amount = 0
-        return round(amount)
+        no_data_amount = 0
+        last_entrys_time = self.formmated_entries[0].date
+        no_data_amount = (datetime.now() - last_entrys_time).total_seconds() // (self.PIXEL_INTERVAL * 60)
+        if no_data_amount > 1 and no_data_amount < 1.5:
+            no_data_amount = 0
+        return round(no_data_amount)
 
     def get_low_brightness_pixels(self) -> List[List[ColorType]]:
         brightness = self.get_brightness_on_hour()
