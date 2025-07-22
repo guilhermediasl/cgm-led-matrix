@@ -18,6 +18,7 @@ class PixelMatrix:
         self.GLUCOSE_HIGH = GLUCOSE_HIGH
         self.night_brightness = night_brightness
         self.pixels = np.zeros((matrix_size, matrix_size, 3), dtype=np.uint8)
+        self.PIXEL_INTERVAL = 5
 
     def set_formmated_entries(self, formmated_entries: List[GlucoseItem]):
         self.formmated_entries = formmated_entries
@@ -156,8 +157,11 @@ class PixelMatrix:
             color = Color.red.rgb
         else:
             glucose_str = str(glucose_value)
-            color = Color.white.rgb
-
+            no_data_amount = self.get_no_data_pixels_amount()
+            if no_data_amount > 0:
+                color = self.interpolate_color(Color.white.rgb, Color.red.rgb, no_data_amount, 0, 10)
+            else:
+                color = Color.white.rgb
 
         digits_width = len(glucose_str) * spacing + self.get_digits_width(glucose_str)
 
@@ -220,16 +224,22 @@ class PixelMatrix:
             # Old glucose trail
             if not trail_plotted:
                 past_idx = x
-                fade_factor = 0.8
+                FADE_FACTOR = 0.8
                 r, g, b = Color.white.rgb
                 
                 while past_idx <= self.matrix_size - 1:
                     past_idx += 1
                     
-                    r, g, b = self.fade_color(ColorType(r, g, b), fade_factor)
+                    r, g, b = self.fade_color(ColorType(r, g, b), FADE_FACTOR)
                     if r > 0 or g > 0 or b > 0:
                         self.set_pixel(past_idx, y, r, g, b)
                 trail_plotted = True
+
+    def get_no_data_pixels_amount(self) -> int:
+        amount = 0
+        last_entrys_time = self.formmated_entries[-1].date
+        amount = (datetime.now() - last_entrys_time).total_seconds() // (self.PIXEL_INTERVAL * 60)
+        return round(amount)
 
     def get_low_brightness_pixels(self) -> List[List[ColorType]]:
         brightness = self.get_brightness_on_hour()
