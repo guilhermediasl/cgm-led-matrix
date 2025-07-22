@@ -157,7 +157,7 @@ class PixelMatrix:
             color = Color.red.rgb
         else:
             glucose_str = str(glucose_value)
-            no_data_amount = self.get_no_data_pixels_amount()
+            no_data_amount = self.get_no_data_pixels_amount() 
             if no_data_amount > 0:
                 color = self.interpolate_color(Color.white.rgb, Color.red.rgb, no_data_amount, 0, 10)
             else:
@@ -239,6 +239,8 @@ class PixelMatrix:
         amount = 0
         last_entrys_time = self.formmated_entries[-1].date
         amount = (datetime.now() - last_entrys_time).total_seconds() // (self.PIXEL_INTERVAL * 60)
+        if amount > 1 and amount < 1.5:
+            amount = 0
         return round(amount)
 
     def get_low_brightness_pixels(self) -> List[List[ColorType]]:
