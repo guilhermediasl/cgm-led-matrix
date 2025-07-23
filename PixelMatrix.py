@@ -299,19 +299,19 @@ class PixelMatrix:
         # Generate the first frame (base frame)
         first_frame_path = os.path.join(temp_dir, "frame-0.png")
         
-        for index in range(1,6):
-            self.set_pixel(0, index - 1, *self.fade_color(Color.white.rgb, 0.1))
+        for index in range(0, 5):
+            self.set_pixel(0, index, *self.fade_color(Color.white.rgb, 0.1))
         self.generate_image(first_frame_path)
         frame_files.append(first_frame_path)
 
         # Generate transparent frames with one visible pixel
-        for index in range(1, 6):
+        for index in range(0, 5):
             transparent_frame = np.zeros((self.matrix_size, self.matrix_size, 4), dtype=np.uint8)  # RGBA fully transparent
-            x, y = 0, index - 1
+            x, y = 0, index
             r, g, b = self.fade_color(Color.pink.rgb, 1)
             transparent_frame[y][x] = [r, g, b, 255]  # Set one pixel to full opacity
 
-            frame_filename = os.path.join(temp_dir, f"frame-{index}.png")
+            frame_filename = os.path.join(temp_dir, f"frame-{index + 1}.png")
             Image.fromarray(transparent_frame, mode="RGBA").save(frame_filename)
             frame_files.append(frame_filename)
 
@@ -359,13 +359,14 @@ class PixelMatrix:
             return 1.0
 
     def determine_color(self, glucose: float, entry_type=EntrieEnum) -> ColorType:
+        MARGIN = 10
         if entry_type == EntrieEnum.MBG:
             return Color.white.rgb
 
-        if glucose < self.GLUCOSE_LOW - 10:
-            return self.interpolate_color(Color.red.rgb, Color.yellow.rgb, glucose, self.get_min_sgv(), self.GLUCOSE_LOW - 10,)
-        if glucose > self.GLUCOSE_HIGH + 10:
-            return self.interpolate_color(Color.yellow.rgb, Color.red.rgb, glucose, self.GLUCOSE_HIGH + 10, self.get_max_sgv())
+        if glucose < self.GLUCOSE_LOW - MARGIN:
+            return self.interpolate_color(Color.red.rgb, Color.yellow.rgb, glucose, self.get_min_sgv(), self.GLUCOSE_LOW - MARGIN)
+        if glucose > self.GLUCOSE_HIGH + MARGIN:
+            return self.interpolate_color(Color.yellow.rgb, Color.red.rgb, glucose, self.GLUCOSE_HIGH + MARGIN, self.get_max_sgv())
         elif glucose <= self.GLUCOSE_LOW or glucose >= self.GLUCOSE_HIGH:
             return Color.yellow.rgb
         else:
