@@ -19,6 +19,8 @@ class PixelMatrix:
         self.night_brightness = night_brightness
         self.pixels = np.zeros((matrix_size, matrix_size, 3), dtype=np.uint8)
         self.PIXEL_INTERVAL = 5
+        self.GLUCOSE_LOW_OUT_OF_RANGE = 39
+        self.GLUCOSE_HIGH_OUT_OF_RANGE = 400
 
     def set_formmated_entries(self, formmated_entries: List[GlucoseItem]):
         self.formmated_entries = formmated_entries
@@ -133,15 +135,15 @@ class PixelMatrix:
 
 
     def get_out_of_range_glucose_str(self, glucose: int) -> str:
-        if glucose <= 39:
+        if glucose <= self.GLUCOSE_LOW_OUT_OF_RANGE:
             return "LOW"
-        elif glucose >= 400:
+        elif glucose >= self.GLUCOSE_HIGH_OUT_OF_RANGE:
             return "HIGH"
         else:
             return str(glucose)
 
     def is_glucose_out_of_range(self, glucose: int) -> bool:
-        return glucose <= 39 or glucose >= 400
+        return glucose <= self.GLUCOSE_LOW_OUT_OF_RANGE or glucose >= self.GLUCOSE_HIGH_OUT_OF_RANGE
 
     def get_digits_width(self, glucose_str: str) -> int:
         width = 0
@@ -150,7 +152,7 @@ class PixelMatrix:
         return width
 
     def display_glucose_on_matrix(self, glucose_value: int) -> None:
-        digit_width, digit_height, spacing = 3, 5, 1
+        DIGIT_WIDTH, DIGIT_HEIGHT, SPACING = 3, 5, 1
 
         if self.is_glucose_out_of_range(glucose_value):
             glucose_str = self.get_out_of_range_glucose_str(glucose_value)
@@ -163,23 +165,23 @@ class PixelMatrix:
             else:
                 color = Color.white.rgb
 
-        digits_width = len(glucose_str) * spacing + self.get_digits_width(glucose_str)
+        digits_width = len(glucose_str) * SPACING + self.get_digits_width(glucose_str)
 
         arrow_pattern = arrow_patterns().get(self.arrow, np.zeros((5, 5)))
-        arrow_width = arrow_pattern.shape[1] + spacing
-        signal_width = 3 + spacing
+        arrow_width = arrow_pattern.shape[1] + SPACING
+        signal_width = DIGIT_WIDTH + SPACING
 
         glucose_diff_str = str(abs(self.glucose_difference))
-        glucose_diff_width = len(glucose_diff_str) * (digit_width + spacing)
+        glucose_diff_width = len(glucose_diff_str) * (DIGIT_WIDTH + SPACING)
         total_width = digits_width + arrow_width + signal_width + glucose_diff_width
 
         x_position = (self.matrix_size - total_width) // 2 + 1
-        y_position = (self.matrix_size - digit_height) // 2 - 13
+        y_position = (self.matrix_size - DIGIT_HEIGHT) // 2 - 13
 
         for digit in glucose_str:
             digit_pattern = digit_patterns()[digit]
             self.draw_pattern(digit_pattern, x_position, y_position, color)
-            x_position += self.get_digit_width(digit) + spacing
+            x_position += self.get_digit_width(digit) + SPACING
 
         self.draw_pattern(arrow_pattern, x_position, y_position, color)
         x_position += arrow_width
@@ -191,7 +193,7 @@ class PixelMatrix:
         for digit in glucose_diff_str:
             digit_pattern = digit_patterns()[digit]
             self.draw_pattern(digit_pattern, x_position, y_position, color)
-            x_position += digit_width + spacing
+            x_position += DIGIT_WIDTH + SPACING
 
     def get_digit_width(self, digit: str) -> int:
         return len(digit_patterns()[digit][0])
