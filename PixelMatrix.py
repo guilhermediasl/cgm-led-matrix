@@ -159,9 +159,10 @@ class PixelMatrix:
             color = Color.red.rgb
         else:
             glucose_str = str(glucose_value)
-            no_data_amount = self.get_no_data_pixels_amount() 
-            if no_data_amount > 0:
-                color = self.interpolate_color(Color.white.rgb, Color.red.rgb, no_data_amount, 5, 10)
+            MIN_AMOUNT = 5
+            no_data_amount = self.get_no_data_pixels_amount() + MIN_AMOUNT
+            if no_data_amount > MIN_AMOUNT:
+                color = self.interpolate_color(Color.white.rgb, Color.red.rgb, no_data_amount, 0, 10)
             else:
                 color = Color.white.rgb
 
