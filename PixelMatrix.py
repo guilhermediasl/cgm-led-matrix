@@ -46,7 +46,7 @@ class PixelMatrix:
             for x in range(self.matrix_size):
                 self.pixels[y][x] = color
 
-    def set_interpoleted_pixel(self, x: int, y: int, glucose_start:int, color: ColorType, percentil: float):
+    def set_interpolated_pixel(self, x: int, y: int, glucose_start:int, color: ColorType, percentil: float):
         start_y = self.glucose_to_y_coordinate(glucose_start) + 2
         y = start_y + y
         if 0 <= x < self.matrix_size and 0 <= y < self.matrix_size:
@@ -104,9 +104,10 @@ class PixelMatrix:
                                             self.GLUCOSE_HIGH,
                                             integer_iob)
 
-            if fractional_iob <= 0.1: continue
+            MINIMUM_FRACTIONAL_IOB = 0.1
+            if fractional_iob <= MINIMUM_FRACTIONAL_IOB: continue
             # Draw fractional IOB as an interpolated pixel
-            self.set_interpoleted_pixel(self.matrix_size - id - 1,
+            self.set_interpolated_pixel(self.matrix_size - id - 1,
                                                 integer_iob,
                                                 self.GLUCOSE_HIGH,
                                                 self.fade_color(Color.blue.rgb, 0.1),
@@ -205,8 +206,8 @@ class PixelMatrix:
 
         for entry in formmated_entries:
             time_diff_minutes = (now - entry.date).total_seconds() / 60
-            idx = int(time_diff_minutes // 5)
-            
+            idx = int(time_diff_minutes // self.PIXEL_INTERVAL)
+
             if idx > self.matrix_size - 1:
                 break
             
@@ -296,21 +297,22 @@ class PixelMatrix:
         frame_files = []
         temp_dir = "temp"
         os.makedirs(temp_dir, exist_ok=True)
+        TIMER_SIZE = 5
 
         # Generate the first frame (base frame)
         first_frame_path = os.path.join(temp_dir, "frame-0.png")
         
-        for index in range(0, 5):
+        for index in range(0, TIMER_SIZE):
             self.set_pixel(0, index, *self.fade_color(Color.white.rgb, 0.1))
         self.generate_image(first_frame_path)
         frame_files.append(first_frame_path)
 
         # Generate transparent frames with one visible pixel
-        for index in range(0, 5):
+        for index in range(0, TIMER_SIZE):
             transparent_frame = np.zeros((self.matrix_size, self.matrix_size, 4), dtype=np.uint8)  # RGBA fully transparent
             x, y = 0, index
             r, g, b = self.fade_color(Color.pink.rgb, 1)
-            transparent_frame[y][x] = [r, g, b, 255]  # Set one pixel to full opacity
+            transparent_frame[y][x] = [r, g, b, 255]
 
             frame_filename = os.path.join(temp_dir, f"frame-{index + 1}.png")
             Image.fromarray(transparent_frame, mode="RGBA").save(frame_filename)
@@ -379,11 +381,11 @@ class PixelMatrix:
         elif value > max_value:
             value = max_value
 
-        t = (value - min_value) / (max_value - min_value)
+        interpolation_factor = (value - min_value) / (max_value - min_value)
 
-        r = int(low_color[0] + t * (high_color[0] - low_color[0]))
-        g = int(low_color[1] + t * (high_color[1] - low_color[1]))
-        b = int(low_color[2] + t * (high_color[2] - low_color[2]))
+        r = int(low_color[0] + interpolation_factor * (high_color[0] - low_color[0]))
+        g = int(low_color[1] + interpolation_factor * (high_color[1] - low_color[1]))
+        b = int(low_color[2] + interpolation_factor * (high_color[2] - low_color[2]))
 
         return ColorType(r, g, b)
 
