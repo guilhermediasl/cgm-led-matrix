@@ -375,6 +375,30 @@ class PixelMatrix:
         else:
             return Color.green.rgb
 
+    def fade_color(self, color: ColorType, percentil: float) -> ColorType:
+        percentil = max(0.0, min(1.0, percentil))
+        
+        corrected_color = []
+
+        # Smooth the boost more aggressively toward low percentils
+        BASE = 0.8
+        MAX_BOOST = 1.5
+        EXPONENT = 8.0
+
+        # Adjust green correction to reduce its intensity at lower values
+        red_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** EXPONENT)
+        green_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** (EXPONENT * 1.2))
+        blue_correction = 1.0
+
+        correction_factors = (red_correction, green_correction, blue_correction)
+
+        for idx, item in enumerate(color):
+            corrected = round(item * percentil * correction_factors[idx])
+            # Ensure the value is within 0-255 range
+            corrected_color.append(max(0, min(255, corrected)))
+
+        return ColorType(*corrected_color)
+
     def interpolate_color(self, low_color: ColorType, high_color: ColorType, value: float, min_value: int, max_value: int) -> ColorType:
         if value < min_value:
             value = min_value
@@ -408,24 +432,3 @@ class PixelMatrix:
 
     def is_five_apart(self, init: int, current: int) -> bool:
         return (current - init + 1) % 5 == 0
-
-    def fade_color(self, color: ColorType, percentil: float) -> ColorType:
-        corrected_color = []
-
-        # Smooth the boost more aggressively toward low percentils
-        BASE = 0.8
-        MAX_BOOST = 1.5
-        EXPONENT = 8.0
-
-        # Adjust green correction to reduce its intensity at lower values
-        red_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** EXPONENT)
-        green_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** (EXPONENT * 1.2))
-        blue_correction = 1.0
-
-        correction_factors = (red_correction, green_correction, blue_correction)
-
-        for idx, item in enumerate(color):
-            corrected = round(item * percentil * correction_factors[idx])
-            corrected_color.append(min(255, max(0, corrected)))
-
-        return ColorType(*corrected_color)

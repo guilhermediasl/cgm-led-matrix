@@ -11,10 +11,12 @@ class TreatmentEnum(Enum):
 class EntrieEnum(str, Enum):
     SGV = 'sgv'
     MBG = 'mbg'
+
 class ColorType(NamedTuple):
     r: int
     g: int
     b: int
+
 class Color(Enum):
     red    = (255, 20, 10)
     green  = (70, 167, 10)
