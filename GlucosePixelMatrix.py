@@ -59,8 +59,7 @@ class GlucoseMatrixDisplay:
     def _load_config_values(self):
         self.ip = self.config.get('ip')
         token = self.config.get('token')
-        self.entries_count = self.config.get('entries count', 40)
-        self.url_entries = f"{self.config.get('url')}/entries.json?token={token}&count={self.entries_count}"
+        self.url_entries = f"{self.config.get('url')}/entries.json?token={token}&count=150"
         self.url_treatments = f"{self.config.get('url')}/treatments.json?token={token}&count=10"
         self.url_ping_entries = f"{self.config.get('url')}/entries.json?token={token}&count=1"
         self.url_iob = f"{self.config.get('url')}/properties/iob?token={token}"
