@@ -28,7 +28,8 @@ class GlucoseMatrixDisplay:
         self.matrix_size = matrix_size
         self.min_glucose = min_glucose
         self.max_glucose = max_glucose
-        self.max_time = 5 * 60 * 1000 * self.matrix_size #milliseconds
+        self.PIXEL_INTERVAL = 5
+        self.max_time = self.PIXEL_INTERVAL * 60 * 1000 * self.matrix_size #milliseconds
         self.config = self.load_config(config_path)
         self.arrow = ''
         self.glucose_difference = 0
@@ -58,7 +59,8 @@ class GlucoseMatrixDisplay:
     def _load_config_values(self):
         self.ip = self.config.get('ip')
         token = self.config.get('token')
-        self.url_entries = f"{self.config.get('url')}/entries.json?token={token}&count=40"
+        self.entries_count = self.config.get('entries count', 40)
+        self.url_entries = f"{self.config.get('url')}/entries.json?token={token}&count={self.entries_count}"
         self.url_treatments = f"{self.config.get('url')}/treatments.json?token={token}&count=10"
         self.url_ping_entries = f"{self.config.get('url')}/entries.json?token={token}&count=1"
         self.url_iob = f"{self.config.get('url')}/properties/iob?token={token}"
@@ -67,7 +69,7 @@ class GlucoseMatrixDisplay:
         self.os = self.config.get('os', 'linux').lower()
         self.image_out = self.config.get('image out', 'led matrix')
         self.output_type = self.config.get("output type")
-        self.night_brightness = self.config.get('night_brightness', 0.3)  
+        self.night_brightness = self.config.get('night_brightness', 0.3)
 
     def _setup_paths(self):
         self.NO_DATA_IMAGE_PATH = os.path.join('images', 'nocgmdata.png')
@@ -245,7 +247,7 @@ class GlucoseMatrixDisplay:
 
         exercise_indexes = self.get_exercises_index()
 
-        pixelMatrix = PixelMatrix(self.matrix_size,self.min_glucose,self.max_glucose, self.GLUCOSE_LOW, self.GLUCOSE_HIGHT, self.night_brightness)
+        pixelMatrix = PixelMatrix(self.matrix_size,self.min_glucose,self.max_glucose, self.GLUCOSE_LOW, self.GLUCOSE_HIGHT, self.night_brightness, self.PIXEL_INTERVAL)
         pixelMatrix.set_formmated_entries(self.formmated_entries)
         pixelMatrix.set_formmated_treatments(self.formmated_treatments)
         pixelMatrix.set_arrow(self.arrow)
@@ -289,10 +291,12 @@ class GlucoseMatrixDisplay:
 
         return exercise_indexes
 
-    def generate_list_from_entries_json(self, entries_margin = 3):
+    def generate_list_from_entries_json(self):
         for item in self.json_entries_data:
             treatment_date = datetime.datetime.strptime(item.get("dateString"), "%Y-%m-%dT%H:%M:%S.%fZ")
             treatment_date += datetime.timedelta(minutes= -180)
+            if treatment_date < datetime.datetime.now() - datetime.timedelta(minutes= self.matrix_size * self.PIXEL_INTERVAL + self.PIXEL_INTERVAL / 2):
+                break
             if item.get("type") == EntrieEnum.SGV:
                 self.formmated_entries.append(GlucoseItem(EntrieEnum.SGV,
                                                   item.get(EntrieEnum.SGV),
@@ -302,9 +306,6 @@ class GlucoseMatrixDisplay:
                 self.formmated_entries.append(GlucoseItem(EntrieEnum.MBG,
                                                   item.get(EntrieEnum.MBG),
                                                   treatment_date))
-
-            if len(self.formmated_entries) == self.matrix_size + entries_margin:
-                break
 
     def generate_list_from_treatments_json(self):
         for item in self.json_treatments_data:

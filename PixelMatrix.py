@@ -10,7 +10,7 @@ from patterns import digit_patterns, arrow_patterns, signal_patterns
 from util import Color, EntrieEnum, GlucoseItem, TreatmentItem, ColorType, ExerciseItem
 
 class PixelMatrix:
-    def __init__(self, matrix_size: int, min_glucose: int, max_glucose: int, GLUCOSE_LOW, GLUCOSE_HIGH, night_brightness):
+    def __init__(self, matrix_size: int, min_glucose: int, max_glucose: int, GLUCOSE_LOW, GLUCOSE_HIGH, night_brightness, PIXEL_INTERVAL):
         self.min_glucose = min_glucose
         self.matrix_size = matrix_size
         self.max_glucose = max_glucose
@@ -18,7 +18,7 @@ class PixelMatrix:
         self.GLUCOSE_HIGH = GLUCOSE_HIGH
         self.night_brightness = night_brightness
         self.pixels = np.zeros((matrix_size, matrix_size, 3), dtype=np.uint8)
-        self.PIXEL_INTERVAL = 5
+        self.PIXEL_INTERVAL = PIXEL_INTERVAL
         self.GLUCOSE_LOW_OUT_OF_RANGE = 39
         self.GLUCOSE_HIGH_OUT_OF_RANGE = 400
 
