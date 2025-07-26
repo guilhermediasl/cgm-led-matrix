@@ -229,7 +229,7 @@ class GlucoseMatrixDisplay:
         self.generate_list_from_entries_json()
         self.generate_list_from_treatments_json()
         self.extract_first_and_second_value()
-        self.set_glucose_difference()
+        # self.set_glucose_difference()
         self.set_arrow()
         self.iob_list = self.get_iob()
         
@@ -252,7 +252,7 @@ class GlucoseMatrixDisplay:
         pixelMatrix.set_arrow(self.arrow)
         pixelMatrix.set_glucose_difference(self.glucose_difference)
  
-        pixelMatrix.display_glucose_on_matrix(self.first_value)
+        pixelMatrix.display_entries()
 
         pixelMatrix.draw_axis()
 
@@ -260,7 +260,7 @@ class GlucoseMatrixDisplay:
         pixelMatrix.draw_carbs(carbs_with_x_values)
         pixelMatrix.draw_bolus(bolus_with_x_values)
         pixelMatrix.draw_exercise(exercise_indexes)
-        pixelMatrix.display_entries(self.formmated_entries)
+        pixelMatrix.display_glucose_on_matrix(self.first_value)
 
         return pixelMatrix
 
@@ -334,9 +334,6 @@ class GlucoseMatrixDisplay:
 
     def set_glucose_difference(self):
         self.glucose_difference = int(self.first_value) - int(self.second_value)
-
-    def get_glucose_difference_signal(self):
-        return '-' if self.glucose_difference < 0 else '+'
 
     def is_old_data(self, json, max_time, logging_enabled=False):
         created_at_str = json.get('sysTime')

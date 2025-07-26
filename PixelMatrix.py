@@ -30,6 +30,9 @@ class PixelMatrix:
 
     def set_arrow(self, arrow: str):
         self.arrow = arrow
+    
+    def get_arrow(self) -> str:
+        return self.arrow
 
     def set_glucose_difference(self, glucose_difference: int):
         self.glucose_difference = glucose_difference
@@ -188,7 +191,7 @@ class PixelMatrix:
         self.draw_pattern(arrow_pattern, x_position, y_position, color)
         x_position += arrow_width
 
-        signal_pattern = signal_patterns()[self.get_glucose_difference_signal()]
+        signal_pattern = signal_patterns()[self.get_glucose_difference_signal(self.glucose_difference)]
         self.draw_pattern(signal_pattern, x_position, y_position, color)
         x_position += signal_width
 
@@ -200,11 +203,11 @@ class PixelMatrix:
     def get_digit_width(self, digit: str) -> int:
         return len(digit_patterns()[digit][0])
 
-    def display_entries(self, formmated_entries: List[GlucoseItem]):
+    def display_entries(self):
         glucose_plot = [[] for _ in range(self.matrix_size)]
         now = datetime.now()
 
-        for entry in formmated_entries:
+        for entry in self.formmated_entries:
             time_diff_minutes = (now - entry.date).total_seconds() / 60
             idx = int(time_diff_minutes // self.PIXEL_INTERVAL)
 
@@ -215,6 +218,7 @@ class PixelMatrix:
                 glucose_plot[idx].append(entry.glucose)
             
         trail_plotted = False
+        median_glucoses = []
         for idx, glucose_values in enumerate(glucose_plot):
             if not glucose_values:
                 continue
@@ -224,6 +228,7 @@ class PixelMatrix:
             y = self.glucose_to_y_coordinate(median_glucose)
             r, g, b = self.determine_color(median_glucose)
             self.set_pixel(x, y, r, g, b)
+            median_glucoses.append(median_glucose)
             
             # Old glucose trail
             if not trail_plotted:
@@ -238,6 +243,9 @@ class PixelMatrix:
                     if r > 0 or g > 0 or b > 0:
                         self.set_pixel(past_idx, y, r, g, b)
                 trail_plotted = True
+                
+        glucose_difference = median_glucoses[0] - median_glucoses[1] if median_glucoses else 0
+        self.set_glucose_difference(glucose_difference)
 
     def get_no_data_pixels_amount(self) -> int:
         no_data_amount = 0
@@ -413,8 +421,8 @@ class PixelMatrix:
 
         return ColorType(r, g, b)
 
-    def get_glucose_difference_signal(self) -> str:
-        return '-' if self.glucose_difference < 0 else '+'
+    def get_glucose_difference_signal(self, glucose_difference: int) -> str:
+        return '-' if glucose_difference < 0 else '+'
 
     def get_max_sgv(self) -> int:
         max_sgv = 0
