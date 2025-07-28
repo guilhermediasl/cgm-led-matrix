@@ -103,7 +103,7 @@ class PixelMatrix:
             
             # Draw integer IOB as a vertical solid line
             self.draw_vertical_line(self.matrix_size - id - 1,
-                                            self.fade_color(Color.blue.rgb, 0.2),
+                                            self.fade_color(Color.blue.rgb, 0.1),
                                             self.GLUCOSE_HIGH,
                                             integer_iob)
 
