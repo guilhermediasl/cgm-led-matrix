@@ -29,6 +29,7 @@ class GlucoseMatrixDisplay:
         self.min_glucose = min_glucose
         self.max_glucose = max_glucose
         self.PIXEL_INTERVAL = 5
+        self.RUN_COMMAND_MAX_COUNT = 800
         self.max_time = self.PIXEL_INTERVAL * 60 * 1000 * self.matrix_size #milliseconds
         self.config = self.load_config(config_path)
         self.arrow = ''
@@ -41,6 +42,7 @@ class GlucoseMatrixDisplay:
         self.newer_id = None
         self.command = ''
         self.last_nightstate = None
+        self.run_command_count = 0
         self._load_config_values()
         self._setup_paths()
         if self.image_out == "led matrix" and self.os != "windows": self.unblock_bluetooth()
@@ -121,6 +123,7 @@ class GlucoseMatrixDisplay:
                     logging.error("Command failed.")
                 else:
                     logging.info(f"Command executed successfully, with last glucose: {self.first_value}")
+                    self.increase_command_run_count()
                     break
             except subprocess.CalledProcessError as e:
                 logging.error(f"Command failed with error: {e}")
@@ -138,9 +141,13 @@ class GlucoseMatrixDisplay:
                 ping_json = self.fetch_json_data(self.url_ping_entries)[0]
                 time_since_last_comunication = (datetime.datetime.now() - last_comunication).total_seconds()
                 logging.info(f"Time since last communication: {time_since_last_comunication:.2f} seconds")
+                
+                if self.is_run_command_count_exceeded():
+                    logging.info("Run command count exceeded, resetting command.")
+                    self.run_reset_command()
+                    self.reset_run_command_count()
 
                 if self.last_nightstate == None or self.has_dayshift_change(self.last_nightstate):
-                    self.run_reset_command()
                     self.run_set_brightness_command()
                     self.last_nightstate = self.get_nightmode()
 
@@ -162,6 +169,21 @@ class GlucoseMatrixDisplay:
             except Exception as e:
                 logging.error(f"Error in the loop: {e}")
                 time.sleep(60)
+
+    def increase_command_run_count(self) -> None:
+        self.run_command_count += 1
+    
+    def is_run_command_count_exceeded(self) -> bool:
+        count = self.RUN_COMMAND_MAX_COUNT
+        if self.run_command_count > count:
+            logging.info(f"Command run count ({self.run_command_count}) is higher than {count}.")
+            return True
+        else:
+            return False
+
+    def reset_run_command_count(self) -> None:
+        logging.info("Resetting run command count.")
+        self.run_command_count = 0
 
     def run_reset_command(self):
         logging.info("Running reset command.")
