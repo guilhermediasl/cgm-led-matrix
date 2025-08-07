@@ -83,7 +83,9 @@ class PixelMatrix:
 
     def draw_axis(self) -> None:
         # Draw hour indicators lines
-        for idx in (12, 24):
+        PIXELS_PER_HOUR = 12
+        intervals = [i for i in range(PIXELS_PER_HOUR, self.matrix_size, PIXELS_PER_HOUR)]
+        for idx in intervals:
             self.draw_vertical_line(self.matrix_size - 1 - idx, self.fade_color(Color.white.rgb, 0.02), self.GLUCOSE_HIGH, 18, blink=True)
 
         # Draw glucose boundaries lines
@@ -318,7 +320,6 @@ class PixelMatrix:
             rgb_image.info["disposal"] = 1
             palette_frames.append(rgb_image)
 
-        # Save the GIF
         palette_frames[0].save(
             output_file,
             save_all=True,
