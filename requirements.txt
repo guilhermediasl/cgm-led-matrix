@@ -1,9 +1,8 @@
-flask==2.2.5
-numpy==1.26.4
-opencv-python==4.9.0.80
-pillow==11.2.1
+Flask==2.2.5
+numpy==2.3.2
+Pillow==11.3.0
 pypng==0.20220715.0
-pyqt5==5.15.11
-pyqt5-sip==12.15.0
+PyQt5==5.15.11
+PyQt5_sip==12.15.0
 pytz==2023.3.post1
-requests==2.32.3
+Requests==2.32.4

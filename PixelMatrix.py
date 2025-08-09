@@ -10,7 +10,19 @@ from patterns import digit_patterns, arrow_patterns, signal_patterns
 from util import Color, EntrieEnum, GlucoseItem, TreatmentItem, ColorType, ExerciseItem
 
 class PixelMatrix:
+    """LED matrix display controller for glucose monitoring visualization."""
+    
     def __init__(self, matrix_size: int, min_glucose: int, max_glucose: int, GLUCOSE_LOW, GLUCOSE_HIGH, night_brightness):
+        """Initialize the pixel matrix with display parameters.
+        
+        Args:
+            matrix_size: Size of the square LED matrix (e.g., 32 for 32x32)
+            min_glucose: Minimum glucose value for display scaling
+            max_glucose: Maximum glucose value for display scaling
+            GLUCOSE_LOW: Lower threshold for normal glucose range
+            GLUCOSE_HIGH: Upper threshold for normal glucose range
+            night_brightness: Brightness factor for night mode (0.0-1.0)
+        """
         self.min_glucose = min_glucose
         self.matrix_size = matrix_size
         self.max_glucose = max_glucose
@@ -18,32 +30,85 @@ class PixelMatrix:
         self.GLUCOSE_HIGH = GLUCOSE_HIGH
         self.night_brightness = night_brightness
         self.pixels = np.zeros((matrix_size, matrix_size, 3), dtype=np.uint8)
+        self.minutes_per_pixel = 5
 
     def set_formmated_entries(self, formmated_entries: List[GlucoseItem]):
+        """Set the glucose entries data for display.
+        
+        Args:
+            formmated_entries: List[GlucoseItem] of glucose readings
+        """
         self.formmated_entries = formmated_entries
 
     def set_formmated_treatments(self, formmated_treatments: List[TreatmentItem | ExerciseItem]):
+        """Set the treatment data for display.
+        
+        Args:
+            formmated_treatments: List[TreatmentItem | ExerciseItem] of treatments (bolus, carbs, exercise) to visualize
+        """
         self.formmated_treatments = formmated_treatments
 
     def set_arrow(self, arrow: str):
+        """Set the glucose trend arrow direction.
+        
+        Args:
+            arrow: Direction string indicating glucose trend
+        """
         self.arrow = arrow
 
     def set_glucose_difference(self, glucose_difference: int):
+        """Set the glucose difference from the 2 previous reading.
+        
+        Args:
+            glucose_difference: Change in glucose value (mg/dL)
+        """
         self.glucose_difference = glucose_difference
 
     def set_pixel(self, x: int, y: int, r: int, g: int, b: int):
+        """Set a single pixel color on the matrix.
+        
+        Args:
+            x: X coordinate (0 to matrix_size-1)
+            y: Y coordinate (0 to matrix_size-1)
+            r: Red component (0-255)
+            g: Green component (0-255)
+            b: Blue component (0-255)
+        """
         if 0 <= x < self.matrix_size and 0 <= y < self.matrix_size:
             self.pixels[y][x] = ColorType(r, g, b)
 
     def get_pixel(self, x: int, y: int) -> ColorType:
+        """Get the color of a pixel at specified coordinates.
+        
+        Args:
+            x: X coordinate
+            y: Y coordinate
+            
+        Returns:
+            ColorType: RGB color values of the pixel
+        """
         return self.pixels[y][x]
 
     def paint_background(self, color):
+        """Fill the entire matrix with a solid color.
+        
+        Args:
+            color: ColorType tuple for the background color
+        """
         for y in range(self.matrix_size):
             for x in range(self.matrix_size):
                 self.pixels[y][x] = color
 
     def set_interpoleted_pixel(self, x: int, y: int, glucose_start:int, color: ColorType, percentil: float):
+        """Set a pixel with interpolated color based on glucose level.
+        
+        Args:
+            x: X coordinate
+            y: Y coordinate offset from glucose baseline
+            glucose_start: Base glucose level for Y calculation
+            color: Target color for interpolation
+            percentil: Interpolation factor (0.0-1.0)
+        """
         start_y = self.glucose_to_y_coordinate(glucose_start) + 2
         y = start_y + y
         if 0 <= x < self.matrix_size and 0 <= y < self.matrix_size:
@@ -51,12 +116,30 @@ class PixelMatrix:
             self.pixels[y][x] = interpolated_color
 
     def draw_pattern(self, pattern: np.ndarray, x: int, y: int, color: ColorType):
+        """Draw a bitmap pattern on the matrix.
+        
+        Args:
+            pattern: 2D numpy array representing the pattern (1=pixel on, 0=pixel off)
+            x: Starting X coordinate
+            y: Starting Y coordinate
+            color: RGB color for the pattern
+        """
         for i in range(pattern.shape[0]):
             for j in range(pattern.shape[1]):
                 if pattern[i, j]:
                     self.set_pixel(x + j, y + i, *color)
 
     def draw_vertical_line(self, x: int, color: ColorType, glucose: int, height: int, enable_five=False, blink=False):
+        """Draw a vertical line representing data values.
+        
+        Args:
+            x: X coordinate for the line
+            color: RGB color of the line
+            glucose: Glucose level for Y positioning
+            height: Height of the line in pixels
+            enable_five: Whether to highlight every 5th pixel
+            blink: Whether to apply blinking effect
+        """
         start_y = self.glucose_to_y_coordinate(glucose) + 2
         if start_y + height < self.matrix_size:
             y_max = start_y + height
@@ -75,24 +158,42 @@ class PixelMatrix:
             self.set_pixel(x, y, *temp_color)
 
     def draw_horizontal_line(self, glucose: int, color: ColorType, start_x: int, finish_x: int):
+        """Draw a horizontal reference line at glucose level.
+        
+        Args:
+            glucose: Glucose level determining Y position
+            color: RGB color
+            start_x: Starting X coordinate
+            finish_x: Ending X coordinate
+        """
         y = self.glucose_to_y_coordinate(glucose) + 1
         finish_x = min(start_x + finish_x, self.matrix_size)
         start_x = max(start_x, 0)
         for x in range(start_x, finish_x):
             self.set_pixel(x, y, *color)
 
-    def draw_axis(self) -> None:
-        # Draw hour indicators lines
+    def draw_hour_indicators(self) -> None:
+        """Draw vertical hour indicator lines on the matrix."""
         PIXELS_PER_HOUR = 12
+        HOUR_COLUMN_HIGH = 18
         intervals = [i for i in range(PIXELS_PER_HOUR, self.matrix_size, PIXELS_PER_HOUR)]
         for idx in intervals:
-            self.draw_vertical_line(self.matrix_size - 1 - idx, self.fade_color(Color.white.rgb, 0.02), self.GLUCOSE_HIGH, 18, blink=True)
+            self.draw_vertical_line(self.matrix_size - 1 - idx, 
+                                    self.fade_color(Color.white.rgb, 0.02), 
+                                    self.GLUCOSE_HIGH, HOUR_COLUMN_HIGH, blink=True)
 
-        # Draw glucose boundaries lines
+    def draw_glucose_boundaries(self) -> None:
+        """Draw horizontal lines indicating target glucose range."""
         for glucose in (self.GLUCOSE_LOW, self.GLUCOSE_HIGH):
             self.draw_horizontal_line(glucose, self.fade_color(Color.white.rgb, 0.1), 0, self.matrix_size)
 
     def draw_iob(self, iob_list: List[float]) -> None:
+        """Draw insulin-on-board (IOB) visualization.
+        
+        Args:
+            iob_list: List of IOB values over time
+        """
+        
         for id,iob in enumerate(iob_list):
             fractional_iob, integer_iob = math.modf(iob)
             integer_iob = int(integer_iob)
@@ -112,6 +213,11 @@ class PixelMatrix:
                                                 fractional_iob)
 
     def draw_carbs(self, carbs_with_x_values: List) -> None:
+        """Draw carbohydrate intake markers.
+        
+        Args:
+            carbs_with_x_values: List of tuples (x_position, carb_amount, type)
+        """
         for treatment in carbs_with_x_values:
             self.draw_vertical_line(treatment[0],
                                     self.fade_color(Color.orange.rgb, 0.2),
@@ -120,6 +226,11 @@ class PixelMatrix:
                                     True)
 
     def draw_bolus(self, bolus_with_x_values: List) -> None:
+        """Draw bolus markers.
+        
+        Args:
+            bolus_with_x_values: List of tuples (x_position, insulin_amount, type)
+        """
         for treatment in bolus_with_x_values:
             self.draw_vertical_line(treatment[0],
                                     self.fade_color(Color.blue.rgb, 0.3),
@@ -128,12 +239,33 @@ class PixelMatrix:
                                     True)
 
     def draw_exercise(self, exercise_indexes: set[int]) -> None:
+        """Draw exercise period indicators.
+        
+        Args:
+            exercise_indexes: Set of X coordinates where exercise occurred
+        """
         for exercise_index in exercise_indexes:
-            self.set_pixel(exercise_index, self.glucose_to_y_coordinate(self.GLUCOSE_HIGH) + 1, *self.fade_color(Color.purple.rgb, 0.5))
-            self.set_pixel(exercise_index, self.glucose_to_y_coordinate(self.GLUCOSE_LOW) + 1, *self.fade_color(Color.purple.rgb, 0.5))
+            self.set_pixel(
+                exercise_index, 
+                self.glucose_to_y_coordinate(self.GLUCOSE_HIGH) + 1, 
+                *self.fade_color(Color.purple.rgb, 0.5)
+                )
+            self.set_pixel(
+                exercise_index,
+                self.glucose_to_y_coordinate(self.GLUCOSE_LOW) + 1,
+                *self.fade_color(Color.purple.rgb, 0.5)
+                )
 
 
     def get_out_of_range_glucose_str(self, glucose: int) -> str:
+        """Convert out-of-range glucose values to display strings.
+        
+        Args:
+            glucose: Glucose value in mg/dL
+            
+        Returns:
+            str: "LOW", "HIGH", or numeric string
+        """
         if glucose <= 39:
             return "LOW"
         elif glucose >= 400:
@@ -142,16 +274,41 @@ class PixelMatrix:
             return str(glucose)
 
     def is_glucose_out_of_range(self, glucose: int) -> bool:
+        """Check if glucose value is outside normal sensor range.
+        
+        Args:
+            glucose: Glucose value in mg/dL
+            
+        Returns:
+            bool: True if value is out of sensor range
+        """
         return glucose <= 39 or glucose >= 400
 
     def get_digits_width(self, glucose_str: str) -> int:
+        """Calculate total width needed for digit string display.
+        
+        Args:
+            glucose_str: String of digits to measure
+            
+        Returns:
+            int: Total width in pixels
+        """
         width = 0
         for digit in glucose_str:
             width += len(digit_patterns()[digit][0])
         return width
 
     def display_glucose_on_matrix(self, glucose_value: int) -> None:
-        digit_width, digit_height, spacing = 3, 5, 1
+        """Display current glucose value with trend arrow and difference.
+        
+        Args:
+            glucose_value: Current glucose reading in mg/dL
+        """
+        DIGIT_WIDTH = 3
+        DIGIT_HEIGHT = 5
+        SPACING = 1
+        SIGNAL_WIDTH = 3
+        VERTICAL_OFFSET = 13
 
         if self.is_glucose_out_of_range(glucose_value):
             glucose_str = self.get_out_of_range_glucose_str(glucose_value)
@@ -160,47 +317,75 @@ class PixelMatrix:
             glucose_str = str(glucose_value)
             color = Color.white.rgb
 
-
-        digits_width = len(glucose_str) * spacing + self.get_digits_width(glucose_str)
-
-        arrow_pattern = arrow_patterns().get(self.arrow, np.zeros((5, 5)))
-        arrow_width = arrow_pattern.shape[1] + spacing
-        signal_width = 3 + spacing
-
-        glucose_diff_str = str(abs(self.glucose_difference))
-        glucose_diff_width = len(glucose_diff_str) * (digit_width + spacing)
-        total_width = digits_width + arrow_width + signal_width + glucose_diff_width
-
-        x_position = (self.matrix_size - total_width) // 2 + 1
-        y_position = (self.matrix_size - digit_height) // 2 - 13
-
-        for digit in glucose_str:
-            digit_pattern = digit_patterns()[digit]
-            self.draw_pattern(digit_pattern, x_position, y_position, color)
-            x_position += self.get_digit_width(digit) + spacing
-
-        self.draw_pattern(arrow_pattern, x_position, y_position, color)
-        x_position += arrow_width
-
+        arrow_pattern = arrow_patterns().get(self.arrow, np.zeros((DIGIT_HEIGHT, DIGIT_HEIGHT)))
         signal_pattern = signal_patterns()[self.get_glucose_difference_signal()]
-        self.draw_pattern(signal_pattern, x_position, y_position, color)
-        x_position += signal_width
+        glucose_diff_str = str(abs(self.glucose_difference))
 
-        for digit in glucose_diff_str:
-            digit_pattern = digit_patterns()[digit]
-            self.draw_pattern(digit_pattern, x_position, y_position, color)
-            x_position += digit_width + spacing
+        glucose_digits_width = self.get_digits_width(glucose_str) + (len(glucose_str) - 1) * SPACING
+        arrow_width = arrow_pattern.shape[1]
+        glucose_diff_width = len(glucose_diff_str) * (DIGIT_WIDTH + SPACING) - SPACING
+        total_width = (
+            glucose_digits_width +
+            SPACING + arrow_width +
+            SPACING + SIGNAL_WIDTH +
+            SPACING + glucose_diff_width
+        )
+
+        x = (self.matrix_size - total_width) // 2 + 1
+        y = (self.matrix_size - DIGIT_HEIGHT) // 2 - VERTICAL_OFFSET
+
+        x = self._draw_text(glucose_str, x, y, color)
+
+        self.draw_pattern(arrow_pattern, x, y, color)
+        x += arrow_width + SPACING
+
+        self.draw_pattern(signal_pattern, x, y, color)
+        x += SIGNAL_WIDTH + SPACING
+
+        self._draw_text(glucose_diff_str, x, y, color)
+
+
+    def _draw_text(self, text: str, x: int, y: int, color: ColorType) -> int:
+        """Draw text string.
+        
+        Args:
+            text: String to draw
+            x: Starting X coordinate
+            y: Starting Y coordinate
+            color: RGB color for the text
+            
+        Returns:
+            int: X coordinate after drawing (for chaining)
+        """
+        for digit in text:
+            pattern = digit_patterns()[digit]
+            self.draw_pattern(pattern, x, y, color)
+            x += self.get_digit_width(digit) + 1
+        return x
 
     def get_digit_width(self, digit: str) -> int:
+        """Get width of a single digit pattern.
+        
+        Args:
+            digit: Single character digit
+            
+        Returns:
+            int: Width in pixels
+        """
         return len(digit_patterns()[digit][0])
 
     def display_entries(self, formmated_entries: List[GlucoseItem]):
+        """Display glucose readings as a timeline graph.
+        
+        Args:
+            formmated_entries: List of glucose readings to plot
+        """
         glucose_plot = [[] for _ in range(self.matrix_size)]
         now = datetime.now()
 
         for entry in formmated_entries:
             time_diff_minutes = (now - entry.date).total_seconds() / 60
-            idx = int(time_diff_minutes // 5)
+            idx = int(time_diff_minutes // self.minutes_per_pixel)
             
             if idx > self.matrix_size - 1:
                 break
@@ -222,28 +407,23 @@ class PixelMatrix:
             # Old glucose trail
             if not trail_plotted:
                 past_idx = x
-                fade_factor = 0.8
+                FADE_FACTOR = 0.8
                 r, g, b = Color.white.rgb
                 
                 while past_idx <= self.matrix_size - 1:
                     past_idx += 1
                     
-                    r, g, b = self.fade_color(ColorType(r, g, b), fade_factor)
+                    r, g, b = self.fade_color(ColorType(r, g, b), FADE_FACTOR)
                     if r > 0 or g > 0 or b > 0:
                         self.set_pixel(past_idx, y, r, g, b)
                 trail_plotted = True
 
-    def get_low_brightness_pixels(self) -> List[List[ColorType]]:
-        brightness = self.get_brightness_on_hour()
-        low_brightness_pixels = [
-            [self.fade_color(self.get_pixel(x, y), brightness) for x in range(self.matrix_size)]
-            for y in range(self.matrix_size)
-        ]
-
-        return low_brightness_pixels
-
     def generate_image(self, output_file="output_image.png"):
-
+        """Export current matrix as PNG image.
+        
+        Args:
+            output_file: Name for the output PNG file
+        """
         pixel_matrix = self.pixels
 
         png_matrix = []
@@ -254,32 +434,13 @@ class PixelMatrix:
             writer = png.Writer(self.matrix_size, self.matrix_size, greyscale=False) # type: ignore
             writer.write(f, png_matrix)
 
-    # def generate_timer_gif(self, output_file=os.path.join("temp", "output_gif.gif")):
-    #     frame_files = []
-    #     first_frame_path = os.path.join("temp", "frame-0.png")
-    #     frame_files.append(first_frame_path)
-
-    #     for index in range(1,6):
-    #         self.set_pixel(0, index - 1, *self.fade_color(Color.white.rgb, 0.1))
-
-    #     self.generate_image(first_frame_path)
-
-    #     for index in range(1,6):
-    #         self.set_pixel(0, index - 1, *self.fade_color(Color.pink.rgb, 1))
-    #         frame_filename = os.path.join("temp", f"frame-{index}.png")
-    #         self.generate_image(frame_filename)
-    #         frame_files.append(frame_filename)
-
-    #     frames = [Image.open(frame) for frame in frame_files]
-    #     frames[0].save(
-    #         output_file,
-    #         save_all=True,
-    #         append_images=frames[1:],
-    #         duration=(30000,60000,60000,60000,60000,60000),  # 30 seconds for the first frame, 1 minute for the others
-    #         loop=None
-    #     )
-
-    def generate_timer_gif(self, output_file=os.path.join("temp", "output_gif.gif")):
+    def generate_timer_gif(self, output_file=os.path.join("temp", "output_gif.gif"), count_number=5):
+        """Generate animated GIF with timer visualization.
+        
+        Args:
+            output_file: Path for the output GIF file
+            count_number: Number of timer frames to generate
+        """
         frame_files = []
         temp_dir = "temp"
         os.makedirs(temp_dir, exist_ok=True)
@@ -287,13 +448,13 @@ class PixelMatrix:
         # Generate the first frame (base frame)
         first_frame_path = os.path.join(temp_dir, "frame-0.png")
         
-        for index in range(1,6):
+        for index in range(1, count_number + 1):
             self.set_pixel(0, index - 1, *self.fade_color(Color.white.rgb, 0.1))
         self.generate_image(first_frame_path)
         frame_files.append(first_frame_path)
 
         # Generate transparent frames with one visible pixel
-        for index in range(1, 6):
+        for index in range(1, count_number + 1):
             transparent_frame = np.zeros((self.matrix_size, self.matrix_size, 4), dtype=np.uint8)  # RGBA fully transparent
             x, y = 0, index - 1
             r, g, b = self.fade_color(Color.pink.rgb, 1)
@@ -330,35 +491,77 @@ class PixelMatrix:
         )
 
     def glucose_to_y_coordinate(self, glucose: int) -> int:
+        """Convert glucose value to Y coordinate on the matrix.
+        
+        Args:
+            glucose: Glucose value in mg/dL
+            
+        Returns:
+            int: Y coordinate (0 = top, matrix_size-1 = bottom)
+        """
         glucose = max(self.min_glucose, min(glucose, self.max_glucose))
         available_y_range = self.matrix_size - 6
         normalized = (glucose - self.min_glucose) / (self.max_glucose - self.min_glucose)
         return int((1 - normalized) * available_y_range) + 5
 
     def get_brightness_on_hour(self, timezone_str="America/Recife") -> float:
+        """Determine brightness factor based on current time.
+        
+        Args:
+            timezone_str: Timezone string for local time calculation
+            
+        Returns:
+            float: Brightness factor (0.0-1.0)
+        """
+        DAY_START_HOUR = 6
+        NIGHT_START_HOUR = 21
         local_tz = pytz.timezone(timezone_str)
         current_time = datetime.now(local_tz)
         current_hour = current_time.hour
 
-        if 21 <= current_hour or current_hour < 6:
+        if NIGHT_START_HOUR <= current_hour or current_hour < DAY_START_HOUR:
             return self.night_brightness
         else:
             return 1.0
 
     def determine_color(self, glucose: float, entry_type=EntrieEnum) -> ColorType:
+        """Determine color for glucose value based on target ranges.
+        
+        Args:
+            glucose: Glucose value in mg/dL
+            entry_type: Type of glucose entry (SGV or MBG)
+            
+        Returns:
+            ColorType: RGB color representing glucose status
+        """
+        MARGIN = 10
         if entry_type == EntrieEnum.MBG:
             return Color.white.rgb
 
-        if glucose < self.GLUCOSE_LOW - 10:
-            return self.interpolate_color(Color.red.rgb, Color.yellow.rgb, glucose, self.get_min_sgv(), self.GLUCOSE_LOW - 10,)
-        if glucose > self.GLUCOSE_HIGH + 10:
-            return self.interpolate_color(Color.yellow.rgb, Color.red.rgb, glucose, self.GLUCOSE_HIGH + 10, self.get_max_sgv())
+        if glucose < self.GLUCOSE_LOW - MARGIN:
+            return self.interpolate_color(Color.red.rgb, Color.yellow.rgb, 
+                                          glucose, self.get_min_sgv(), self.GLUCOSE_LOW - MARGIN,)
+        if glucose > self.GLUCOSE_HIGH + MARGIN:
+            return self.interpolate_color(Color.yellow.rgb, Color.red.rgb, 
+                                          glucose, self.GLUCOSE_HIGH + MARGIN, self.get_max_sgv())
         elif glucose <= self.GLUCOSE_LOW or glucose >= self.GLUCOSE_HIGH:
             return Color.yellow.rgb
         else:
             return Color.green.rgb
 
     def interpolate_color(self, low_color: ColorType, high_color: ColorType, value: float, min_value: int, max_value: int) -> ColorType:
+        """Interpolate between two colors based on a value range.
+        
+        Args:
+            low_color: RGB color for minimum value
+            high_color: RGB color for maximum value
+            value: Current value to interpolate
+            min_value: Minimum value in range
+            max_value: Maximum value in range
+            
+        Returns:
+            ColorType: Interpolated RGB color
+        """
         if value < min_value:
             value = min_value
         elif value > max_value:
@@ -373,26 +576,51 @@ class PixelMatrix:
         return ColorType(r, g, b)
 
     def get_glucose_difference_signal(self) -> str:
+        """Get the sign of glucose difference as string.
+        
+        Returns:
+            str: '+' or '-'
+        """
         return '-' if self.glucose_difference < 0 else '+'
 
     def get_max_sgv(self) -> int:
-        max_sgv = 0
-        for entry in self.formmated_entries:
-            max_sgv = max(max_sgv, entry.glucose)
-
-        return max_sgv
+        """Find maximum glucose value in current entries.
+        
+        Returns:
+            int: Maximum glucose value in mg/dL
+        """
+        return max(entry.glucose for entry in self.formmated_entries)
 
     def get_min_sgv(self) -> int:
-        min_sgv = self.formmated_entries[0].glucose
-        for entry in self.formmated_entries:
-            min_sgv = min(min_sgv, entry.glucose)
-
-        return min_sgv
+        """Find minimum glucose value in current entries.
+        
+        Returns:
+            int: Minimum glucose value in mg/dL
+        """
+        return min(entry.glucose for entry in self.formmated_entries)
 
     def is_five_apart(self, init: int, current: int) -> bool:
+        """Check if current position is 5 pixels away from initial position.
+        
+        Args:
+            init: Initial Y position
+            current: Current Y position
+            
+        Returns:
+            bool: True if positions are 5 apart
+        """
         return (current - init + 1) % 5 == 0
 
     def fade_color(self, color: ColorType, percentil: float) -> ColorType:
+        """Apply brightness and color correction to a color.
+        
+        Args:
+            color: Original RGB color
+            percentil: Brightness factor (0.0 - 1.0)
+            
+        Returns:
+            ColorType: Adjusted RGB color
+        """
         corrected_color = []
 
         # Smooth the boost more aggressively toward low percentils
