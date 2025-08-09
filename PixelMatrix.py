@@ -200,7 +200,7 @@ class PixelMatrix:
             
             # Draw integer IOB as a vertical solid line
             self.draw_vertical_line(self.matrix_size - id - 1,
-                                            self.fade_color(Color.blue.rgb, 0.1),
+                                            self.fade_color(Color.blue.rgb, 0.08),
                                             self.GLUCOSE_HIGH,
                                             integer_iob)
 
@@ -210,7 +210,7 @@ class PixelMatrix:
             self.set_interpolated_pixel(self.matrix_size - id - 1,
                                                 integer_iob,
                                                 self.GLUCOSE_HIGH,
-                                                self.fade_color(Color.blue.rgb, 0.1),
+                                                self.fade_color(Color.blue.rgb, 0.08),
                                                 fractional_iob)
 
     def draw_carbs(self, carbs_with_x_values: List) -> None:
