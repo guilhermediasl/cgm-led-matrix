@@ -274,7 +274,6 @@ class GlucoseMatrixDisplay:
         pixelMatrix.set_arrow(self.arrow)
         pixelMatrix.set_glucose_difference(self.glucose_difference)
  
-        pixelMatrix.display_entries()
 
         pixelMatrix.draw_axis()
 
@@ -282,6 +281,8 @@ class GlucoseMatrixDisplay:
         pixelMatrix.draw_carbs(carbs_with_x_values)
         pixelMatrix.draw_bolus(bolus_with_x_values)
         pixelMatrix.draw_exercise(exercise_indexes)
+        
+        pixelMatrix.display_entries()
         pixelMatrix.display_glucose_on_matrix(self.first_value)
 
         return pixelMatrix
