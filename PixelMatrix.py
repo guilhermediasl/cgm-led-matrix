@@ -572,10 +572,12 @@ class PixelMatrix:
         BASE = 0.8
         MAX_BOOST = 1.5
         EXPONENT = 8.0
+        GREEN_GAIN = 0.8
+        RED_GAIN = 1.0
 
         # Adjust green correction to reduce its intensity at lower values
-        red_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** EXPONENT)
-        green_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** (EXPONENT * 1.2))
+        red_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** EXPONENT * RED_GAIN)
+        green_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** (EXPONENT * GREEN_GAIN))
         blue_correction = 1.0
 
         correction_factors = (red_correction, green_correction, blue_correction)
