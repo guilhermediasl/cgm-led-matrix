@@ -563,49 +563,49 @@ class PixelMatrix:
         else:
             return Color.green.rgb
 
-    def fade_color(self, color: ColorType, percentil: float) -> ColorType:
-        percentil = max(0.0, min(1.0, percentil))
-        
-        corrected_color = []
-
-        # Smooth the boost more aggressively toward low percentils
-        BASE = 0.8
-        MAX_BOOST = 1.5
-        EXPONENT = 8.0
-        GREEN_GAIN = 0.8
-        RED_GAIN = 1.0
-
-        # Adjust green correction to reduce its intensity at lower values
-        red_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** EXPONENT * RED_GAIN)
-        green_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** (EXPONENT * GREEN_GAIN))
-        blue_correction = 1.0
-
-        correction_factors = (red_correction, green_correction, blue_correction)
-
-        for idx, item in enumerate(color):
-            corrected = round(item * percentil * correction_factors[idx])
-            # Ensure the value is within 0-255 range
-            corrected_color.append(max(0, min(255, corrected)))
-
-        return ColorType(*corrected_color)
-    
     # def fade_color(self, color: ColorType, percentil: float) -> ColorType:
-    #     """Apply brightness and color correction to a color.
-        
-    #     Args:
-    #         color: Original RGB color
-    #         percentil: Brightness factor (0.0 - 1.0)
-            
-    #     Returns:
-    #         ColorType: Adjusted RGB color
-    #     """
     #     percentil = max(0.0, min(1.0, percentil))
         
-    #     r = int(color.r * percentil)
-    #     g = int(color.g * percentil)
-    #     b = int(color.b * percentil)
+    #     corrected_color = []
 
-    #     return ColorType(r, g, b)
+    #     # Smooth the boost more aggressively toward low percentils
+    #     BASE = 0.8
+    #     MAX_BOOST = 1.5
+    #     EXPONENT = 8.0
+    #     GREEN_GAIN = 0.8
+    #     RED_GAIN = 1.0
+
+    #     # Adjust green correction to reduce its intensity at lower values
+    #     red_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** EXPONENT * RED_GAIN)
+    #     green_correction = BASE + (MAX_BOOST - BASE) * ((1 - percentil) ** (EXPONENT * GREEN_GAIN))
+    #     blue_correction = 1.0
+
+    #     correction_factors = (red_correction, green_correction, blue_correction)
+
+    #     for idx, item in enumerate(color):
+    #         corrected = round(item * percentil * correction_factors[idx])
+    #         # Ensure the value is within 0-255 range
+    #         corrected_color.append(max(0, min(255, corrected)))
+
+    #     return ColorType(*corrected_color)
+    
+    def fade_color(self, color: ColorType, percentil: float) -> ColorType:
+        """Apply brightness and color correction to a color.
+        
+        Args:
+            color: Original RGB color
+            percentil: Brightness factor (0.0 - 1.0)
+            
+        Returns:
+            ColorType: Adjusted RGB color
+        """
+        percentil = max(0.0, min(1.0, percentil))
+        
+        r = int(color.r * percentil)
+        g = int(color.g * percentil)
+        b = int(color.b * percentil)
+
+        return ColorType(r, g, b)
         
 
     def interpolate_color(self, low_color: ColorType, high_color: ColorType, value: float, min_value: int, max_value: int) -> ColorType:
