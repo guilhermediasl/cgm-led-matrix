@@ -408,12 +408,15 @@ class PixelMatrix:
                 FADE_FACTOR = 0.8
                 r, g, b = Color.white.rgb
                 
-                while past_idx <= self.matrix_size - 1:
+                MAX_TRAIL_LENGTH = 8
+                current_trail_length = 0
+                while past_idx <= self.matrix_size - 1 and current_trail_length < MAX_TRAIL_LENGTH:
                     past_idx += 1
                     
                     r, g, b = self.fade_color(ColorType(r, g, b), FADE_FACTOR)
                     if r > 0 or g > 0 or b > 0:
                         self.set_pixel(past_idx, y, r, g, b)
+                    current_trail_length += 1
                 trail_plotted = True
                 
         glucose_difference = median_glucoses[0] - median_glucoses[1] if median_glucoses else 0
