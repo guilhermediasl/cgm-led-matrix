@@ -4,20 +4,25 @@ from enum import Enum
 from typing import NamedTuple
 
 class TreatmentEnum(Enum):
+    """Enumeration for different types of diabetes treatments."""
     BOLUS = 'Bolus'
     CARBS = 'Carbs'
     EXERCISE = 'Exercise'
 
 class EntrieEnum(str, Enum):
-    SGV = 'sgv'
-    MBG = 'mbg'
+    """Enumeration for different types of glucose entries."""
+    SGV = 'sgv'  # Sensor Glucose Value
+    MBG = 'mbg'  # Manual Blood Glucose
+
 
 class ColorType(NamedTuple):
+    """RGB color."""
     r: int
     g: int
     b: int
 
 class Color(Enum):
+    """Predefined color palette."""
     red    = (255, 20, 10)
     green  = (70, 167, 10)
     yellow = (244, 170, 0)
@@ -31,10 +36,16 @@ class Color(Enum):
 
     @property
     def rgb(self) -> ColorType:
+        """Convert enum value to ColorType tuple.
+        
+        Returns:
+            ColorType: RGB values as a named tuple
+        """
         return ColorType(*self.value)
 
 @dataclass
 class GlucoseItem:
+    """Represents a glucose reading from CGM or manual blood glucose."""
     type: EntrieEnum
     glucose: int
     date: datetime
@@ -45,6 +56,7 @@ class GlucoseItem:
 
 @dataclass
 class TreatmentItem:
+    """Represents a diabetes treatment entry (bolus or carbs)."""
     id: str
     type: TreatmentEnum
     date: datetime
@@ -55,6 +67,7 @@ class TreatmentItem:
 
 @dataclass
 class ExerciseItem:
+    """Represents an exercise activity entry."""
     type: TreatmentEnum
     date: datetime
     amount: int
