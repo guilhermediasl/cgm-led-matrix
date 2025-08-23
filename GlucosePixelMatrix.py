@@ -310,7 +310,6 @@ class GlucoseMatrixDisplay:
         self.extract_first_and_second_value()
         # self.set_glucose_difference()
         self.set_arrow()
-        # Insert (append) new IOB sample without replacing the whole list
         self.inser_iob_item_from_json()
         
     def has_dayshift_change(self, previus_nightmode: bool):
@@ -607,11 +606,11 @@ class GlucoseMatrixDisplay:
         """Insert latest IOB sample (with timestamp) into self.iob_list (newest first)."""
         iob_value = self.json_iob.get("iob", {}).get("iob", None)
 
-        base_dt = datetime.datetime.now()
+        current_time = datetime.datetime.now()
         amount = float(iob_value) if iob_value is not None else 0.0
         # Prevent duplicate timestamp inserts (same minute)
-        if not self.iob_list or abs((base_dt - self.iob_list[0].date).total_seconds()) >= 30:
-            self.iob_list.insert(0, IobItem(base_dt, round(amount, 3)))
+        if not self.iob_list or abs((current_time - self.iob_list[0].date).total_seconds()) >= 30:
+            self.iob_list.insert(0, IobItem(current_time, round(amount, 3)))
         # Keep only needed history (slightly more than matrix for interpolation safety)
         max_keep = self.matrix_size * 2
         if len(self.iob_list) > max_keep:
