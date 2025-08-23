@@ -43,8 +43,8 @@ class GlucoseMatrixDisplay:
         self.config = self.load_config(config_path)
         self.arrow = ''
         self.glucose_difference = 0
-        self.first_value = 0
-        self.second_value = 0
+        self.first_glucose_entry: GlucoseItem
+        self.second_glucose_entry: GlucoseItem
         self.formmated_entries: List[GlucoseItem] = []
         self.formmated_treatments: List[TreatmentItem | ExerciseItem] = []
         self.iob_list: List[IobItem] = []
@@ -150,7 +150,7 @@ class GlucoseMatrixDisplay:
                 if result.returncode != 0:
                     logging.error("Command failed.")
                 else:
-                    logging.info(f"Command executed successfully, with last glucose: {self.first_value}")
+                    logging.info(f"Command executed successfully, with last glucose: {self.first_glucose_entry}")
                     self.increase_command_run_count()
                     break
             except subprocess.CalledProcessError as e:
@@ -308,7 +308,6 @@ class GlucoseMatrixDisplay:
         self.generate_list_from_entries_json()
         self.generate_list_from_treatments_json()
         self.extract_first_and_second_value()
-        # self.set_glucose_difference()
         self.set_arrow()
         self.inser_iob_item_from_json()
         
@@ -350,7 +349,7 @@ class GlucoseMatrixDisplay:
         pixelMatrix.set_formmated_entries(self.formmated_entries)
         pixelMatrix.set_formmated_treatments(self.formmated_treatments)
         pixelMatrix.set_arrow(self.arrow)
-        pixelMatrix.set_glucose_difference(self.glucose_difference)
+        pixelMatrix.set_glucose_difference(self.calc_glucose_difference())
 
         pixelMatrix.draw_hour_indicators()
         pixelMatrix.draw_glucose_boundaries()
@@ -361,7 +360,7 @@ class GlucoseMatrixDisplay:
         pixelMatrix.draw_exercise(exercise_indexes)
         
         pixelMatrix.display_entries()
-        pixelMatrix.display_glucose_on_matrix(self.first_value)
+        pixelMatrix.display_glucose_on_matrix(self.first_glucose_entry.glucose)
 
         return pixelMatrix
 
@@ -370,12 +369,13 @@ class GlucoseMatrixDisplay:
         first_value_saved_flag = False
         for item in self.formmated_entries:
             if item.type == EntrieEnum.SGV and not first_value_saved_flag:
-                self.first_value = item.glucose
+                self.first_glucose_entry = item
                 first_value_saved_flag = True
                 continue
             if item.type == EntrieEnum.SGV:
-                self.second_value = item.glucose
+                self.second_glucose_entry = item
                 break
+        return self.first_glucose_entry, self.second_glucose_entry
 
     def get_exercises_index(self) -> set[int]:
         """Calculate X coordinates for exercise period indicators.
@@ -410,12 +410,12 @@ class GlucoseMatrixDisplay:
                 break
             if item.get("type") == EntrieEnum.SGV:
                 self.formmated_entries.append(GlucoseItem(EntrieEnum.SGV,
-                                                  item.get(EntrieEnum.SGV),
+                                                  int(item.get(EntrieEnum.SGV)),
                                                   treatment_date,
                                                   item.get("direction")))
             elif item.get("type") == EntrieEnum.MBG:
                 self.formmated_entries.append(GlucoseItem(EntrieEnum.MBG,
-                                                  item.get(EntrieEnum.MBG),
+                                                  int(item.get(EntrieEnum.MBG)),
                                                   treatment_date))
 
     def generate_list_from_treatments_json(self):
@@ -445,9 +445,62 @@ class GlucoseMatrixDisplay:
                                                                     time,
                                                                     int(item.get("duration"))))
 
-    def set_glucose_difference(self):
-        """Calculate the difference between first and second glucose values."""
-        self.glucose_difference = int(self.first_value) - int(self.second_value)
+    # def calc_glucose_difference(self) -> int:
+    #     """Calculate the difference between first and second glucose values interpolated to the pixel interval."""
+    #     delta_glucose = self.first_glucose_entry.glucose - self.second_glucose_entry.glucose
+    #     delta_minutes = (self.first_glucose_entry.date - self.second_glucose_entry.date).total_seconds() / 60
+    
+    #     if delta_minutes == 0:
+    #         return 0
+    
+    #     self.glucose_difference = round(delta_glucose * (self.PIXEL_INTERVAL / delta_minutes))
+    #     return self.glucose_difference
+    
+    def calc_glucose_difference(self) -> int:
+        """
+        Calculate glucose difference between the most recent glucose value
+        and the interpolated value 5 minutes before.
+        Handles irregular intervals by linear interpolation.
+        """
+        if not self.formmated_entries or len(self.formmated_entries) < 2:
+            return 0
+
+        # most recent entry
+        first = self.extract_first_and_second_value()[0]
+        target_time = first.date - datetime.timedelta(minutes=5)
+
+        # find two entries surrounding target_time
+        before = None
+        after = None
+        for entry in self.formmated_entries[1:]:
+            if entry.type != EntrieEnum.SGV:
+                continue
+            
+            if entry.date <= target_time:
+                before = entry
+                break
+            
+            after = entry
+
+        if before and after:
+            # interpolate linearly
+            total_delta = (after.date - before.date).total_seconds()
+            if total_delta == 0:
+                past_glucose = before.glucose
+            else:
+                ratio = (target_time - before.date).total_seconds() / total_delta
+                past_glucose = before.glucose + ratio * (after.glucose - before.glucose)
+        elif before:  
+            # no after entry, use nearest before
+            past_glucose = before.glucose
+        elif after:   
+            # no before entry, use nearest after
+            past_glucose = after.glucose
+        else:
+            return 0
+
+        self.glucose_difference = round(first.glucose - past_glucose)
+        return self.glucose_difference
 
     def is_old_data(self, json, max_time, logging_enabled=False):
         """Check if the glucose data is older than acceptable threshold.

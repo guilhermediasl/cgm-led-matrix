@@ -393,7 +393,6 @@ class PixelMatrix:
                 glucose_plot[idx].append(entry.glucose)
             
         trail_plotted = False
-        median_glucoses = []
         for idx, glucose_values in enumerate(glucose_plot):
             if not glucose_values:
                 continue
@@ -403,7 +402,6 @@ class PixelMatrix:
             y = self.glucose_to_y_coordinate(median_glucose)
             r, g, b = self.determine_color(median_glucose)
             self.set_pixel(x, y, r, g, b)
-            median_glucoses.append(median_glucose)
             
             # Old glucose trail
             if not trail_plotted:
@@ -421,9 +419,6 @@ class PixelMatrix:
                         self.set_pixel(past_idx, y, r, g, b)
                     current_trail_length += 1
                 trail_plotted = True
-                
-        glucose_difference = median_glucoses[0] - median_glucoses[1] if median_glucoses else 0
-        self.set_glucose_difference(glucose_difference)
 
     def get_no_data_pixels_amount(self) -> int:
         """Calculate number of pixels without data based on last entry time.
