@@ -42,7 +42,6 @@ class GlucoseMatrixDisplay:
         self.max_time = self.PIXEL_INTERVAL * 60 * 1000 * self.matrix_size #milliseconds
         self.config = self.load_config(config_path)
         self.arrow = ''
-        self.glucose_difference = 0
         self.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 0, datetime.datetime.now())
         self.second_glucose_entry = GlucoseItem(EntrieEnum.SGV, 0, datetime.datetime.now())
         self.formmated_entries: List[GlucoseItem] = []
@@ -444,17 +443,6 @@ class GlucoseMatrixDisplay:
                 self.formmated_treatments.append(ExerciseItem(TreatmentEnum.EXERCISE,
                                                                     time,
                                                                     int(item.get("duration"))))
-
-    # def calc_glucose_difference(self) -> int:
-    #     """Calculate the difference between first and second glucose values interpolated to the pixel interval."""
-    #     delta_glucose = self.first_glucose_entry.glucose - self.second_glucose_entry.glucose
-    #     delta_minutes = (self.first_glucose_entry.date - self.second_glucose_entry.date).total_seconds() / 60
-    
-    #     if delta_minutes == 0:
-    #         return 0
-    
-    #     self.glucose_difference = round(delta_glucose * (self.PIXEL_INTERVAL / delta_minutes))
-    #     return self.glucose_difference
     
     def calc_glucose_difference(self) -> int:
         """
@@ -498,9 +486,8 @@ class GlucoseMatrixDisplay:
             past_glucose = after.glucose
         else:
             return 0
-
-        self.glucose_difference = round(first.glucose - past_glucose)
-        return self.glucose_difference
+        
+        return round(first.glucose - past_glucose)
 
     def is_old_data(self, json, max_time, logging_enabled=False):
         """Check if the glucose data is older than acceptable threshold.
