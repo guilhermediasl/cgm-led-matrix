@@ -7,7 +7,7 @@ import pytz
 from PIL import Image
 import os
 from patterns import digit_patterns, arrow_patterns, signal_patterns
-from util import Color, EntrieEnum, GlucoseItem, TreatmentItem, ColorType, ExerciseItem
+from util import Color, EntrieEnum, GlucoseItem, IobItem, TreatmentItem, ColorType, ExerciseItem
 
 class PixelMatrix:
     """LED matrix display controller for glucose monitoring visualization."""
@@ -188,14 +188,17 @@ class PixelMatrix:
         for glucose in (self.GLUCOSE_LOW, self.GLUCOSE_HIGH):
             self.draw_horizontal_line(glucose, self.fade_color(Color.white.rgb, 0.1), 0, self.matrix_size)
 
-    def draw_iob(self, iob_list: List[float]) -> None:
+    def draw_iob(self, iob_list: List[IobItem]) -> None:
         """Draw insulin-on-board (IOB) visualization.
         
         Args:
             iob_list: List of IOB values over time
         """
-        for id,iob in enumerate(iob_list):
-            fractional_iob, integer_iob = math.modf(iob)
+        print("Drawing IOB values...")
+        print(f"IOB list length: {len(iob_list)}")
+        print("IOB list:", iob_list)
+        for id,iobItem in enumerate(iob_list):
+            fractional_iob, integer_iob = math.modf(iobItem.amount)
             integer_iob = int(integer_iob)
             
             # Draw integer IOB as a vertical solid line

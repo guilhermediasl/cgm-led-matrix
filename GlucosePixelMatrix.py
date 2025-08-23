@@ -9,8 +9,9 @@ import logging
 from logging.handlers import RotatingFileHandler
 from typing import List
 from http.client import RemoteDisconnected
-from util import GlucoseItem, TreatmentItem, ExerciseItem, TreatmentEnum, EntrieEnum
+from util import GlucoseItem, IobItem, TreatmentItem, ExerciseItem, TreatmentEnum, EntrieEnum
 from PixelMatrix import PixelMatrix
+import bisect
 
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 log_file = 'app.log'
@@ -46,7 +47,7 @@ class GlucoseMatrixDisplay:
         self.second_value = 0
         self.formmated_entries: List[GlucoseItem] = []
         self.formmated_treatments: List[TreatmentItem | ExerciseItem] = []
-        self.iob_list: List[float] = []
+        self.iob_list: List[IobItem] = []
         self.newer_id = None
         self.command = ''
         self.last_nightstate = None
@@ -309,7 +310,8 @@ class GlucoseMatrixDisplay:
         self.extract_first_and_second_value()
         # self.set_glucose_difference()
         self.set_arrow()
-        self.iob_list = self.get_iob()
+        # Insert (append) new IOB sample without replacing the whole list
+        self.inser_iob_item_from_json()
         
     def has_dayshift_change(self, previus_nightmode: bool):
         """Check if day/night mode has changed since last update.
@@ -343,18 +345,18 @@ class GlucoseMatrixDisplay:
         bolus_with_x_values,carbs_with_x_values,exercises_with_x_values = self.get_treatments_x_values()
 
         exercise_indexes = self.get_exercises_index()
+        interpolated_iob_items = self.get_interpolated_iob_series()
 
         pixelMatrix = PixelMatrix(self.matrix_size,self.min_glucose,self.max_glucose, self.GLUCOSE_LOW, self.GLUCOSE_HIGHT, self.night_brightness, self.PIXEL_INTERVAL)
         pixelMatrix.set_formmated_entries(self.formmated_entries)
         pixelMatrix.set_formmated_treatments(self.formmated_treatments)
         pixelMatrix.set_arrow(self.arrow)
         pixelMatrix.set_glucose_difference(self.glucose_difference)
- 
 
         pixelMatrix.draw_hour_indicators()
         pixelMatrix.draw_glucose_boundaries()
         
-        pixelMatrix.draw_iob(self.iob_list)
+        pixelMatrix.draw_iob(interpolated_iob_items)
         pixelMatrix.draw_carbs(carbs_with_x_values)
         pixelMatrix.draw_bolus(bolus_with_x_values)
         pixelMatrix.draw_exercise(exercise_indexes)
@@ -601,19 +603,74 @@ class GlucoseMatrixDisplay:
         else:
             return after
 
-    def get_iob(self):
-        """Get insulin-on-board values for visualization.
-        
-        Returns:
-            List[float]: IOB values limited to matrix size
-        """
+    def inser_iob_item_from_json(self):
+        """Insert latest IOB sample (with timestamp) into self.iob_list (newest first)."""
         iob_value = self.json_iob.get("iob", {}).get("iob", None)
-        if iob_value == None:
-            self.iob_list.insert(0,0)
-        else:
-            self.iob_list.insert(0,iob_value)
-        return self.iob_list[:self.matrix_size]
 
+        base_dt = datetime.datetime.now()
+        amount = float(iob_value) if iob_value is not None else 0.0
+        # Prevent duplicate timestamp inserts (same minute)
+        if not self.iob_list or abs((base_dt - self.iob_list[0].date).total_seconds()) >= 30:
+            self.iob_list.insert(0, IobItem(base_dt, round(amount, 3)))
+        # Keep only needed history (slightly more than matrix for interpolation safety)
+        max_keep = self.matrix_size * 2
+        if len(self.iob_list) > max_keep:
+            self.iob_list = self.iob_list[:max_keep]
+
+    def get_interpolated_iob_series(self) -> List[IobItem]:
+        """Return matrix_size IobItems (newest first) at PIXEL_INTERVAL spacing.
+        Only interpolate between collected samples in self.iob_list.
+        Do NOT extrapolate further into the past than the oldest stored sample.
+        Older pixels beyond memory are filled with 0.0.
+        """
+        if not self.iob_list:
+            now = datetime.datetime.now()
+            return [IobItem(now - datetime.timedelta(minutes=i * self.PIXEL_INTERVAL), 0.0)
+                    for i in range(self.matrix_size)]
+
+        # Sort samples oldest -> newest
+        samples = sorted(self.iob_list, key=lambda x: x.date)
+        oldest_time = samples[0].date
+        newest_time = samples[-1].date
+        newest_value = float(samples[-1].amount)
+
+        # Pre-extract for faster search
+        sample_times = [s.date for s in samples]
+        sample_vals = [float(s.amount) for s in samples]
+
+        def interpolate(target: datetime.datetime) -> float:
+            # Clamp to newest (should only occur for offset 0)
+            if target >= newest_time:
+                return newest_value
+            # Outside (older) than memory: caller guards; return 0.0 if called
+            if target < oldest_time:
+                return 0.0
+            # Binary search position
+            idx = bisect.bisect_left(sample_times, target)
+            if idx == 0:
+                return sample_vals[0]
+            if idx >= len(sample_times):
+                return sample_vals[-1]
+            left_t, right_t = sample_times[idx - 1], sample_times[idx]
+            left_v, right_v = sample_vals[idx - 1], sample_vals[idx]
+            span = (right_t - left_t).total_seconds()
+            if span <= 0:
+                return left_v
+            ratio = (target - left_t).total_seconds() / span
+            return left_v + ratio * (right_v - left_v)
+
+        series: List[IobItem] = []
+        for offset in range(self.matrix_size):
+            t = newest_time - datetime.timedelta(minutes=offset * self.PIXEL_INTERVAL)
+            if t < oldest_time:
+                val = 0.0
+            else:
+                val = interpolate(t)
+            series.append(IobItem(t, round(val, 3)))
+
+        return series  # index 0 newest
+
+    
 
 if __name__ == "__main__":
     GlucoseMatrixDisplay().run_command_in_loop()

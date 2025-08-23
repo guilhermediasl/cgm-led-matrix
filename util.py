@@ -74,3 +74,12 @@ class ExerciseItem:
 
     def __str__(self):
         return f"ExerciseItem (type='{self.type}', date='{self.date}', amount={self.amount})"
+
+@dataclass
+class IobItem:
+    """Represents an insulin on board (IOB) entry."""
+    date: datetime
+    amount: float
+
+    def __str__(self):
+        return f"IobItem (date='{self.date}', amount={self.amount})"
