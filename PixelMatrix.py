@@ -590,6 +590,69 @@ class PixelMatrix:
 
     #     return ColorType(*corrected_color)
     
+    
+    def draw_glucose_intervals(self, fade_strength: float = 0.2) -> None:
+        """Draw faded intervals between glucose entries to visualize trends.
+
+        Args:
+            fade_strength: Brightness factor for interval lines (0.0 - 1.0)
+        """
+        if not hasattr(self, "formmated_entries") or len(self.formmated_entries) < 2:
+            return
+
+        now = datetime.now()
+
+        for i in range(len(self.formmated_entries) - 1):
+            entry1 = self.formmated_entries[i]
+            entry2 = self.formmated_entries[i + 1]
+
+            # X coordinates from time difference
+            t1 = int((now - entry1.date).total_seconds() // (self.PIXEL_INTERVAL * 60))
+            t2 = int((now - entry2.date).total_seconds() // (self.PIXEL_INTERVAL * 60))
+
+            x1 = self.matrix_size - t1 - 1
+            x2 = self.matrix_size - t2 - 1
+
+            if not (0 <= x1 < self.matrix_size and 0 <= x2 < self.matrix_size):
+                continue
+
+            y1 = self.glucose_to_y_coordinate(entry1.glucose)
+            y2 = self.glucose_to_y_coordinate(entry2.glucose)
+
+            # Base color for glucose values
+            r, g, b = self.determine_color(entry1.glucose)
+            faded_color = self.fade_color(ColorType(r, g, b), fade_strength)
+
+            # Draw interpolated line between two glucose values
+            self._draw_line(x1, y1, x2, y2, faded_color)
+
+
+    def _draw_line(self, x1: int, y1: int, x2: int, y2: int, color: ColorType):
+        """Draw a line between two points using Bresenham's algorithm.
+        
+        Args:
+            x1, y1: Start coordinates
+            x2, y2: End coordinates
+            color: RGB color of the line
+        """
+        dx = abs(x2 - x1)
+        dy = -abs(y2 - y1)
+        sx = 1 if x1 < x2 else -1
+        sy = 1 if y1 < y2 else -1
+        err = dx + dy
+
+        while True:
+            self.set_pixel(x1, y1, *color)
+            if x1 == x2 and y1 == y2:
+                break
+            e2 = 2 * err
+            if e2 >= dy:
+                err += dy
+                x1 += sx
+            if e2 <= dx:
+                err += dx
+                y1 += sy
+
     def fade_color(self, color: ColorType, percentil: float) -> ColorType:
         """Apply brightness and color correction to a color.
         

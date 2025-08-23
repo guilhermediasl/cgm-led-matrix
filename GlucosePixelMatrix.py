@@ -91,6 +91,7 @@ class GlucoseMatrixDisplay:
         self.image_out = self.config.get('image out', 'led matrix')
         self.output_type = self.config.get("output type")
         self.night_brightness = self.config.get('night_brightness')
+        self.PLOT_GLUCOSE_TRAIL: bool = self.config.get('plot glucose trail', True)
 
     def _setup_paths(self):
         """Initialize file paths for images and outputs."""
@@ -357,6 +358,8 @@ class GlucoseMatrixDisplay:
         pixelMatrix.draw_carbs(carbs_with_x_values)
         pixelMatrix.draw_bolus(bolus_with_x_values)
         pixelMatrix.draw_exercise(exercise_indexes)
+        
+        if self.PLOT_GLUCOSE_TRAIL: pixelMatrix.draw_glucose_intervals()
         
         pixelMatrix.display_entries()
         pixelMatrix.display_glucose_on_matrix(self.first_glucose_entry.glucose)
