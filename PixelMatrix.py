@@ -591,7 +591,7 @@ class PixelMatrix:
     #     return ColorType(*corrected_color)
     
     
-    def draw_glucose_intervals(self, fade_strength: float = 0.1) -> None:
+    def draw_glucose_intervals(self, fade_strength: float = 0.05) -> None:
         """Draw faded intervals between glucose entries to visualize trends.
 
         Args:
