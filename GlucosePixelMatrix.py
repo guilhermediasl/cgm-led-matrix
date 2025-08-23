@@ -43,8 +43,8 @@ class GlucoseMatrixDisplay:
         self.config = self.load_config(config_path)
         self.arrow = ''
         self.glucose_difference = 0
-        self.first_glucose_entry: GlucoseItem
-        self.second_glucose_entry: GlucoseItem
+        self.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 0, datetime.datetime.now())
+        self.second_glucose_entry = GlucoseItem(EntrieEnum.SGV, 0, datetime.datetime.now())
         self.formmated_entries: List[GlucoseItem] = []
         self.formmated_treatments: List[TreatmentItem | ExerciseItem] = []
         self.iob_list: List[IobItem] = []
