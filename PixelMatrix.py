@@ -621,9 +621,7 @@ class PixelMatrix:
         """
         if not hasattr(self, "formmated_entries") or len(self.formmated_entries) < 2:
             return
-
-        now = datetime.now()
-        
+                
         glucose_values = self._average_entries_by_time(self.formmated_entries)
 
         previous_y = None

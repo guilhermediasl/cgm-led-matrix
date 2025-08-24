@@ -351,6 +351,8 @@ class GlucoseMatrixDisplay:
         pixelMatrix.set_arrow(self.arrow)
         pixelMatrix.set_glucose_difference(self.calc_glucose_difference())
 
+        if self.PLOT_GLUCOSE_TRAIL: pixelMatrix.draw_glucose_intervals()
+        
         pixelMatrix.draw_hour_indicators()
         pixelMatrix.draw_glucose_boundaries()
         
@@ -359,7 +361,6 @@ class GlucoseMatrixDisplay:
         pixelMatrix.draw_bolus(bolus_with_x_values)
         pixelMatrix.draw_exercise(exercise_indexes)
         
-        if self.PLOT_GLUCOSE_TRAIL: pixelMatrix.draw_glucose_intervals()
         
         pixelMatrix.display_entries()
         pixelMatrix.display_glucose_on_matrix(self.first_glucose_entry.glucose)
