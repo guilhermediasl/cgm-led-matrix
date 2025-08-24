@@ -379,47 +379,69 @@ class PixelMatrix:
         Args:
             formmated_entries: List of glucose readings to plot
         """
-        glucose_plot = [[] for _ in range(self.matrix_size)]
-        now = datetime.now()
+        glucose_plot = self._average_entries_by_time(self.formmated_entries)
 
-        for entry in self.formmated_entries:
-            time_diff_minutes = (now - entry.date).total_seconds() / 60
-            idx = int(time_diff_minutes // self.PIXEL_INTERVAL)
-
-            if idx > self.matrix_size - 1:
-                break
-            
-            if 0 <= idx < self.matrix_size:
-                glucose_plot[idx].append(entry.glucose)
-            
-        trail_plotted = False
-        for idx, glucose_values in enumerate(glucose_plot):
+        for minutes_index, glucose_values in enumerate(glucose_plot):
             if not glucose_values:
                 continue
             
             median_glucose = int(np.average(glucose_values))
-            x = self.matrix_size - idx - 1
+            x = self._time_index_to_x(minutes_index)
             y = self.glucose_to_y_coordinate(median_glucose)
-            r, g, b = self.determine_color(median_glucose)
-            self.set_pixel(x, y, r, g, b)
-            
-            # Old glucose trail
-            if not trail_plotted:
-                past_idx = x
-                FADE_FACTOR = 0.8
-                r, g, b = Color.white.rgb
-                
-                MAX_TRAIL_LENGTH = 8
-                current_trail_length = 0
-                while past_idx <= self.matrix_size - 1 and current_trail_length < MAX_TRAIL_LENGTH:
-                    past_idx += 1
-                    
-                    r, g, b = self.fade_color(ColorType(r, g, b), FADE_FACTOR)
-                    if r > 0 or g > 0 or b > 0:
-                        self.set_pixel(past_idx, y, r, g, b)
-                    current_trail_length += 1
-                trail_plotted = True
 
+            self._plot_entry(x, y, median_glucose)
+
+            if minutes_index == 0:
+                self._draw_trail(x, y)
+                
+    def _average_entries_by_time(self, entries) -> List[int]:
+        """Group glucose entries into buckets indexed by minutes elapsed."""
+        glucose_plot = [[] for _ in range(self.matrix_size)]
+        now = datetime.now()
+
+        for entry in entries:
+            minutes_elapsed = (now - entry.date).total_seconds() / 60
+            minutes_index = int(minutes_elapsed // self.PIXEL_INTERVAL)
+
+            if minutes_index >= self.matrix_size:
+                break
+            if minutes_index >= 0:
+                glucose_plot[minutes_index].append(entry.glucose)
+
+        # Calculate average glucose for each time bucket
+        average_glucose_plot = []
+        for bucket in glucose_plot:
+            if bucket:
+                average_glucose_plot.append(int(np.mean(bucket)))
+            else:
+                average_glucose_plot.append(None)
+        return average_glucose_plot
+
+    def _time_index_to_x(self, minutes_index: int) -> int:
+        """Convert time bucket index to matrix X coordinate."""
+        return self.matrix_size - minutes_index - 1
+
+    def _plot_entry(self, x: int, y: int, glucose: int) -> None:
+        """Plot a single glucose entry on the matrix."""
+        r, g, b = self.determine_color(glucose)
+        self.set_pixel(x, y, r, g, b)
+
+    def _draw_trail(self, start_x: int, y: int) -> None:
+        """Draw faded glucose trail to the right of the latest point."""
+        MAX_TRAIL_LENGTH = 8
+        FADE_FACTOR = 0.8
+
+        r, g, b = Color.white.rgb
+        for offset in range(1, MAX_TRAIL_LENGTH + 1):
+            x = start_x + offset
+            if x >= self.matrix_size:
+                break
+
+            r, g, b = self.fade_color(ColorType(r, g, b), FADE_FACTOR)
+            if r == g == b == 0:
+                break
+            self.set_pixel(x, y, r, g, b)
+        
     def get_no_data_pixels_amount(self) -> int:
         """Calculate number of pixels without data based on last entry time.
         
@@ -601,32 +623,31 @@ class PixelMatrix:
             return
 
         now = datetime.now()
+        
+        glucose_values = self._average_entries_by_time(self.formmated_entries)
 
-        for i in range(len(self.formmated_entries) - 1):
-            entry1 = self.formmated_entries[i]
-            entry2 = self.formmated_entries[i + 1]
-
-            # X coordinates from time difference
-            t1 = int((now - entry1.date).total_seconds() // (self.PIXEL_INTERVAL * 60))
-            t2 = int((now - entry2.date).total_seconds() // (self.PIXEL_INTERVAL * 60))
-
-            x1 = self.matrix_size - t1 - 1
-            x2 = self.matrix_size - t2 - 1
-
-            if not (0 <= x1 < self.matrix_size and 0 <= x2 < self.matrix_size):
+        previous_y = None
+        for minutes_index, glucose_values in enumerate(glucose_values):
+            if not glucose_values:
                 continue
 
-            y1 = self.glucose_to_y_coordinate(entry1.glucose)
-            y2 = self.glucose_to_y_coordinate(entry2.glucose)
+            median_glucose = int(np.average(glucose_values))
+            x = self._time_index_to_x(minutes_index)
+            y = self.glucose_to_y_coordinate(median_glucose)
 
-            # Base color for glucose values
-            r, g, b = self.determine_color(entry1.glucose)
-            faded_color = self.fade_color(ColorType(r, g, b), fade_strength)
+            if previous_y is not None:
+                # Draw faded interval between previous and current point
+                self._plot_faded_interval(x_prev, previous_y, x, y, median_glucose, fade_strength)
 
-            # Draw interpolated line between two glucose values
-            self._draw_line(x1, y1, x2, y2, faded_color)
+            x_prev, previous_y = x, y
 
 
+    def _plot_faded_interval(self, x1: int, y1: int, x2: int, y2: int, glucose: int, fade_strength: float) -> None:
+        """Draw a faded line interval between two glucose values."""
+        base_color = ColorType(*self.determine_color(glucose))
+        faded_color = self.fade_color(base_color, fade_strength)
+        self._draw_line(x1, y1, x2, y2, faded_color)
+    
     def _draw_line(self, x1: int, y1: int, x2: int, y2: int, color: ColorType):
         """Draw a line between two points using Bresenham's algorithm.
         
@@ -647,9 +668,13 @@ class PixelMatrix:
                 break
             e2 = 2 * err
             if e2 >= dy:
+                if x1 == x2:
+                    break
                 err += dy
                 x1 += sx
             if e2 <= dx:
+                if y1 == y2:
+                    break
                 err += dx
                 y1 += sy
 
@@ -663,7 +688,7 @@ class PixelMatrix:
         Returns:
             ColorType: Adjusted RGB color
         """
-        percentil = max(0.0, min(1.0, percentil))
+        percentil = max(0.05, min(1.0, percentil))
         
         r = int(color.r * percentil)
         g = int(color.g * percentil)
