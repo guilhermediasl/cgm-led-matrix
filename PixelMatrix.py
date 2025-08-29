@@ -57,13 +57,14 @@ class PixelMatrix:
         """
         self.arrow = arrow
 
-    def set_glucose_difference(self, glucose_difference: int):
+    def set_glucose_difference(self):
         """Set the glucose difference from the 2 previous reading.
         
         Args:
             glucose_difference: Change in glucose value (mg/dL)
         """
-        self.glucose_difference = glucose_difference
+        average_entries = self.entries_by_time
+        self.glucose_difference = average_entries[0] - average_entries[1] if len(average_entries) > 1 else 0
 
     def set_pixel(self, x: int, y: int, r: int, g: int, b: int):
         """Set a single pixel color on the matrix.
@@ -379,7 +380,7 @@ class PixelMatrix:
         Args:
             formmated_entries: List of glucose readings to plot
         """
-        average_glucoses = self._average_entries_by_time(self.formmated_entries)
+        average_glucoses = self.entries_by_time
 
         for pixel_interval_index, glucose_values in enumerate(average_glucoses):
             if not glucose_values:
@@ -394,7 +395,7 @@ class PixelMatrix:
             if pixel_interval_index == 0:
                 self._draw_trail(x, y)
                 
-    def _average_entries_by_time(self, entries) -> List[int]:
+    def average_entries_by_time(self, entries) -> List[int]:
         """Group glucose entries into buckets indexed by minutes elapsed."""
         glucose_plot = [[] for _ in range(self.matrix_size)]
         now = datetime.now()
@@ -409,13 +410,14 @@ class PixelMatrix:
                 glucose_plot[minutes_index].append(entry.glucose)
 
         # Calculate average glucose for each time bucket
-        average_glucose_plot = []
+        average_entries_by_time = []
         for bucket in glucose_plot:
             if bucket:
-                average_glucose_plot.append(int(np.mean(bucket)))
+                average_entries_by_time.append(int(np.mean(bucket)))
             else:
-                average_glucose_plot.append(None)
-        return average_glucose_plot
+                average_entries_by_time.append(None)
+        self.entries_by_time = average_entries_by_time
+        return average_entries_by_time
 
     def _time_index_to_x(self, minutes_index: int) -> int:
         """Convert time bucket index to matrix X coordinate."""
@@ -638,7 +640,7 @@ class PixelMatrix:
         if not hasattr(self, "formmated_entries") or len(self.formmated_entries) < 2:
             return
                 
-        glucose_values = self._average_entries_by_time(self.formmated_entries)
+        glucose_values = self.average_entries_by_time(self.formmated_entries)
 
         previous_y = None
         for minutes_index, glucose_values in enumerate(glucose_values):

@@ -349,9 +349,10 @@ class GlucoseMatrixDisplay:
 
         pixelMatrix = PixelMatrix(self.matrix_size,self.min_glucose,self.max_glucose, self.GLUCOSE_LOW, self.GLUCOSE_HIGHT, self.night_brightness, self.PIXEL_INTERVAL)
         pixelMatrix.set_formmated_entries(self.formmated_entries)
+        pixelMatrix.average_entries_by_time(self.formmated_entries)
         pixelMatrix.set_formmated_treatments(self.formmated_treatments)
         pixelMatrix.set_arrow(self.arrow)
-        pixelMatrix.set_glucose_difference(self.calc_glucose_difference())
+        pixelMatrix.set_glucose_difference()
 
         if self.PLOT_GLUCOSE_INTERVALS: pixelMatrix.draw_glucose_intervals()
         
