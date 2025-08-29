@@ -40,6 +40,7 @@ class GlucoseMatrixDisplay:
         self.PIXEL_INTERVAL = 5
         self.RUN_COMMAND_MAX_COUNT = 800
         self.max_time = self.PIXEL_INTERVAL * 60 * 1000 * self.matrix_size #milliseconds
+        self.pixels_time = [datetime.datetime.now() - datetime.timedelta(minutes=i * self.PIXEL_INTERVAL) for i in range(self.matrix_size)]
         self.config = self.load_config(config_path)
         self.arrow = ''
         self.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 0, datetime.datetime.now())
@@ -91,7 +92,7 @@ class GlucoseMatrixDisplay:
         self.image_out = self.config.get('image out', 'led matrix')
         self.output_type = self.config.get("output type")
         self.night_brightness = self.config.get('night_brightness')
-        self.PLOT_GLUCOSE_TRAIL: bool = self.config.get('plot glucose trail', True)
+        self.PLOT_GLUCOSE_INTERVALS: bool = self.config.get('plot glucose trail', True)
 
     def _setup_paths(self):
         """Initialize file paths for images and outputs."""
@@ -113,6 +114,7 @@ class GlucoseMatrixDisplay:
 
         if self.json_entries_data:
             self.parse_matrix_values()
+            self._set_pixels_time()
             self.pixelMatrix = self.build_pixel_matrix()
 
             if image_path:
@@ -351,7 +353,7 @@ class GlucoseMatrixDisplay:
         pixelMatrix.set_arrow(self.arrow)
         pixelMatrix.set_glucose_difference(self.calc_glucose_difference())
 
-        if self.PLOT_GLUCOSE_TRAIL: pixelMatrix.draw_glucose_intervals()
+        if self.PLOT_GLUCOSE_INTERVALS: pixelMatrix.draw_glucose_intervals()
         
         pixelMatrix.draw_hour_indicators()
         pixelMatrix.draw_glucose_boundaries()
@@ -558,8 +560,7 @@ class GlucoseMatrixDisplay:
         newer_entry_time = self.formmated_entries[0].date
         older_entry_time = self.formmated_entries[-1].date
 
-        entry_dates = {entry.date: idx for idx, entry in enumerate(self.formmated_entries)}
-        sorted_dates = sorted(entry_dates.keys())
+        entry_dates = {entry: idx for idx, entry in enumerate(self.pixels_time)}
 
         bolus_values = []
         carbs_values = []
@@ -576,7 +577,7 @@ class GlucoseMatrixDisplay:
                 (treatment.date < older_entry_time or treatment.date > newer_entry_time))):
                 continue
                 
-            closest_date = self._find_closest_date(treatment.date, sorted_dates)
+            closest_date = self._find_closest_date(treatment.date, self.pixels_time[::-1])
             
             if closest_date is None:
                 continue
@@ -713,7 +714,9 @@ class GlucoseMatrixDisplay:
 
         return series  # index 0 newest
 
-    
+    def _set_pixels_time(self):
+        """Set the pixel time array based on current time and matrix size."""
+        self.pixels_time = [datetime.datetime.now() - datetime.timedelta(minutes=i * self.PIXEL_INTERVAL) for i in range(self.matrix_size)]
 
 if __name__ == "__main__":
     GlucoseMatrixDisplay().run_command_in_loop()
