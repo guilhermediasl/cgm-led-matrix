@@ -92,7 +92,7 @@ class GlucoseMatrixDisplay:
         self.image_out = self.config.get('image out', 'led matrix')
         self.output_type = self.config.get("output type")
         self.night_brightness = self.config.get('night_brightness')
-        self.PLOT_GLUCOSE_INTERVALS: bool = self.config.get('plot glucose trail', True)
+        self.PLOT_GLUCOSE_INTERVALS: bool = self.config.get('plot glucose intervals', True)
 
     def _setup_paths(self):
         """Initialize file paths for images and outputs."""
