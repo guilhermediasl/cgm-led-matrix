@@ -702,7 +702,7 @@ class PixelMatrix:
         Returns:
             ColorType: Adjusted RGB color
         """
-        percentil = max(0.1, min(1.0, percentil))
+        percentil = max(0.15, min(1.0, percentil))
         
         r = int(color.r * percentil)
         g = int(color.g * percentil)
