@@ -537,10 +537,26 @@ class PixelMatrix:
         Returns:
             int: Y coordinate (0 = top, matrix_size-1 = bottom)
         """
+        DIGIT_HEIGHT = 5
         glucose = max(self.min_glucose, min(glucose, self.max_glucose))
-        available_y_range = self.matrix_size - 6
+        available_y_range = self.matrix_size - DIGIT_HEIGHT - 1
         normalized = (glucose - self.min_glucose) / (self.max_glucose - self.min_glucose)
-        return int((1 - normalized) * available_y_range) + 5
+        return int((1 - normalized) * available_y_range) + DIGIT_HEIGHT
+    
+    def y_coordinate_to_glucose(self, y: int) -> int:
+        """Convert Y coordinate back to glucose value.
+        
+        Args:
+            y: Y coordinate (0 = top, matrix_size-1 = bottom)
+            
+        Returns:
+            int: Glucose value in mg/dL
+        """
+        DIGIT_HEIGHT = 5
+        available_y_range = self.matrix_size - DIGIT_HEIGHT - 1
+        normalized = 1 - (y - DIGIT_HEIGHT) / available_y_range
+        glucose = normalized * (self.max_glucose - self.min_glucose) + self.min_glucose
+        return int(glucose)
 
     def get_brightness_on_hour(self, timezone_str="America/Recife") -> float:
         """Determine brightness factor based on current time.
@@ -642,11 +658,9 @@ class PixelMatrix:
 
     def _plot_faded_interval(self, x1: int, y1: int, x2: int, y2: int, glucose: int, fade_strength: float) -> None:
         """Draw a faded line interval between two glucose values."""
-        base_color = ColorType(*self.determine_color(glucose))
-        faded_color = self.fade_color(base_color, fade_strength)
-        self._draw_line(x1, y1, x2, y2, faded_color)
+        self._draw_line(x1, y1, x2, y2, fade_strength)
     
-    def _draw_line(self, x1: int, y1: int, x2: int, y2: int, color: ColorType):
+    def _draw_line(self, x1: int, y1: int, x2: int, y2: int, fade_strength: float):
         """Draw a line between two points using Bresenham's algorithm.
         
         Args:
@@ -661,7 +675,9 @@ class PixelMatrix:
         err = dx + dy
 
         while True:
-            self.set_pixel(x1, y1, *color)
+            color = self.determine_color(self.y_coordinate_to_glucose(y1))
+            faded_color = self.fade_color(color, fade_strength)
+            self.set_pixel(x1, y1, *faded_color)
             if x1 == x2 and y1 == y2:
                 break
             e2 = 2 * err
