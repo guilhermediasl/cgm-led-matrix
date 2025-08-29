@@ -363,10 +363,10 @@ class PixelMatrix:
         self._draw_text(glucose_diff_str, x, y, color)
 
     def get_digit_width(self, digit: str) -> int:
-        """Get width of a single digit pattern.
+        """Get width of a digit pattern.
         
         Args:
-            digit: Single character digit
+            digit: Character digit
             
         Returns:
             int: Width in pixels
@@ -379,19 +379,19 @@ class PixelMatrix:
         Args:
             formmated_entries: List of glucose readings to plot
         """
-        glucose_plot = self._average_entries_by_time(self.formmated_entries)
+        average_glucoses = self._average_entries_by_time(self.formmated_entries)
 
-        for minutes_index, glucose_values in enumerate(glucose_plot):
+        for pixel_interval_index, glucose_values in enumerate(average_glucoses):
             if not glucose_values:
                 continue
             
             median_glucose = int(np.average(glucose_values))
-            x = self._time_index_to_x(minutes_index)
+            x = self._time_index_to_x(pixel_interval_index)
             y = self.glucose_to_y_coordinate(median_glucose)
 
             self._plot_entry(x, y, median_glucose)
 
-            if minutes_index == 0:
+            if pixel_interval_index == 0:
                 self._draw_trail(x, y)
                 
     def _average_entries_by_time(self, entries) -> List[int]:
