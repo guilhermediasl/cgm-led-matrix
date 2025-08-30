@@ -354,10 +354,10 @@ class GlucoseMatrixDisplay:
         pixelMatrix.set_arrow(self.arrow)
         pixelMatrix.set_glucose_difference()
 
-        if self.PLOT_GLUCOSE_INTERVALS: pixelMatrix.draw_glucose_intervals()
         
         pixelMatrix.draw_hour_indicators()
         pixelMatrix.draw_glucose_boundaries()
+        if self.PLOT_GLUCOSE_INTERVALS: pixelMatrix.draw_glucose_intervals()
         
         pixelMatrix.draw_iob(interpolated_iob_items)
         pixelMatrix.draw_carbs(carbs_with_x_values)
