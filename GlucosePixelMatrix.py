@@ -204,6 +204,7 @@ class GlucoseMatrixDisplay:
                 time.sleep(5)
             except Exception as e:
                 logging.error(f"Error in the loop: {e}")
+                logging.info(f"Pixel Matrix: {self.pixelMatrix}")
                 time.sleep(60)
 
     def increase_command_run_count(self) -> None:

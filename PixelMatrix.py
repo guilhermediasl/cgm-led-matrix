@@ -63,9 +63,25 @@ class PixelMatrix:
         Args:
             glucose_difference: Change in glucose value (mg/dL)
         """
-        average_entries = self.entries_by_time
-        self.glucose_difference = average_entries[0] - average_entries[1] if len(average_entries) > 1 else 0
+        buckets = getattr(self, "entries_by_time", None)
+        if buckets:
+            recent_values = [v for v in buckets if v is not None][:2]
+            if len(recent_values) == 2:
+                diff = recent_values[0] - recent_values[1]
+        # Fallback to raw entries if needed
+        if diff == 0 and (not buckets or sum(v is not None for v in buckets) < 2):
+            entries = getattr(self, "formmated_entries", [])
+            if len(entries) >= 2:
+                # entries[0] should be newest; if not, sort descending by date
+                if entries[0].date < entries[1].date:
+                    entries = sorted(entries, key=lambda e: e.date, reverse=True)
+                g1 = entries[0].glucose
+                g2 = entries[1].glucose
+                if g1 is not None and g2 is not None:
+                    diff = g1 - g2
 
+        self.glucose_difference = diff
+        
     def set_pixel(self, x: int, y: int, r: int, g: int, b: int):
         """Set a single pixel color on the matrix.
         
