@@ -312,6 +312,7 @@ class GlucoseMatrixDisplay:
         self.generate_list_from_treatments_json()
         self.extract_first_and_second_value()
         self.set_arrow()
+        self.delete_outdated_iob_items()
         self.inser_iob_item_from_json()
         
     def has_dayshift_change(self, previus_nightmode: bool):
@@ -658,10 +659,17 @@ class GlucoseMatrixDisplay:
         # Prevent duplicate timestamp inserts (same minute)
         if not self.iob_list or abs((current_time - self.iob_list[0].date).total_seconds()) >= 30:
             self.iob_list.insert(0, IobItem(current_time, round(amount, 3)))
-        # Keep only needed history (slightly more than matrix for interpolation safety)
-        max_keep = self.matrix_size * 2
-        if len(self.iob_list) > max_keep:
-            self.iob_list = self.iob_list[:max_keep]
+            
+    def delete_outdated_iob_items(self):
+        """Remove IOB samples older than the oldest pixel time."""
+        if not self.iob_list:
+            return
+
+        oldest_pixel_time = self.pixels_time[-1]
+        delta = datetime.timedelta(minutes=5)
+
+        while self.iob_list and self.iob_list[-1].date < oldest_pixel_time - delta:
+            self.iob_list.pop()
 
     def get_interpolated_iob_series(self) -> List[IobItem]:
         """Return matrix_size IobItems (newest first) at PIXEL_INTERVAL spacing.
