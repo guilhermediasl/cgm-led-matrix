@@ -1,6 +1,7 @@
 import math
 import os
 import subprocess
+from numpy import half
 import requests
 import time
 import json
@@ -344,7 +345,7 @@ class GlucoseMatrixDisplay:
         Returns:
             PixelMatrix: Configured matrix ready for display
         """
-        bolus_with_x_values,carbs_with_x_values,exercises_with_x_values = self.get_treatments_x_values()
+        bolus_with_x_values, carbs_with_x_values = self.get_treatments_x_values()
 
         exercise_indexes = self.get_exercises_index()
         interpolated_iob_items = self.get_interpolated_iob_series()
@@ -386,22 +387,47 @@ class GlucoseMatrixDisplay:
         return self.first_glucose_entry, self.second_glucose_entry
 
     def get_exercises_index(self) -> set[int]:
-        """Calculate X coordinates for exercise period indicators.
+        """Calculate pixel indexes for exercise periods overlapping the matrix window.
         
         Returns:
-            set[int]: Set of X coordinates where exercise periods overlap with entries
+            set[int]: Indexes (0..matrix_size-1) representing times where exercise periods overlap pixels.
         """
-        exercise_indexes = set()
+        exercise_indexes: set[int] = set()
+
+        def clamp(idx: int) -> int:
+            return max(0, min(idx, self.matrix_size - 1))
+
+        if not self.pixels_time:
+            return exercise_indexes
+
+        # Matrix time boundaries (newest at index 0, oldest at index -1)
+        newest_time = self.pixels_time[0]
+        oldest_time = self.pixels_time[-1]
+
         for treatment in self.formmated_treatments:
             if treatment.type != TreatmentEnum.EXERCISE:
                 continue
 
-            exercise_start = treatment.date
-            exercise_end = exercise_start + datetime.timedelta(minutes=treatment.amount)
+            start_time = treatment.date
+            end_time = start_time + datetime.timedelta(minutes=treatment.amount)
 
-            for index, entry in enumerate(self.formmated_entries):
-                if exercise_start <= entry.date <= exercise_end:
-                    exercise_indexes.add(self.matrix_size - 1 - index)
+            # Skip if exercise is completely outside the matrix window
+            if end_time < oldest_time or start_time > newest_time:
+                continue
+
+            # Clamp exercise times to fit inside visible window
+            clamped_start = max(start_time, oldest_time)
+            clamped_end = min(end_time, newest_time)
+
+            # Map clamped times to pixel indexes
+            start_idx = clamp(self._find_closest_date_index(clamped_start, self.pixels_time))
+            end_idx = clamp(self._find_closest_date_index(clamped_end, self.pixels_time))
+
+            if start_idx > end_idx:
+                start_idx, end_idx = end_idx, start_idx
+
+            # Add all indexes for this exercise period
+            exercise_indexes.update(range(start_idx, end_idx + 1))
 
         return exercise_indexes
 
@@ -558,7 +584,7 @@ class GlucoseMatrixDisplay:
         """
         if not self.formmated_entries:
             logging.warning("No glucose entries available.")
-            return [], [], []
+            return [], []
 
         newer_entry_time = self.formmated_entries[0].date
         older_entry_time = self.formmated_entries[-1].date
@@ -567,7 +593,6 @@ class GlucoseMatrixDisplay:
 
         bolus_values = []
         carbs_values = []
-        exercise_values = []
 
         for treatment in self.formmated_treatments:
             # Skip treatments outside the time window
@@ -580,28 +605,21 @@ class GlucoseMatrixDisplay:
                 (treatment.date < older_entry_time or treatment.date > newer_entry_time))):
                 continue
                 
-            closest_date = self._find_closest_date(treatment.date, self.pixels_time[::-1])
+            closest_date = self._find_closest_date(treatment.date, self.pixels_time)
             
             if closest_date is None:
                 continue
                 
             x_value = entry_dates[closest_date]
             matrix_x = self.matrix_size - x_value - 1
-            
-            # Process by treatment type
-            if treatment.type == TreatmentEnum.EXERCISE:
-                time_elapsed = max(0, (older_entry_time - treatment.date).total_seconds() / 60)
-                remaining_time = math.ceil(treatment.amount - time_elapsed) if time_elapsed > 0 else treatment.amount
                 
-                exercise_values.append((matrix_x, remaining_time, treatment.type))
-                
-            elif treatment.type == TreatmentEnum.BOLUS:
+            if treatment.type == TreatmentEnum.BOLUS:
                 bolus_values.append((matrix_x, treatment.amount, treatment.type))
                 
             elif treatment.type == TreatmentEnum.CARBS:
                 carbs_values.append((matrix_x, treatment.amount, treatment.type))
         
-        return bolus_values, carbs_values, exercise_values
+        return bolus_values, carbs_values
 
     def _find_closest_date(self, target_date, date_list):
         """Find the closest date in a sorted list using binary search.
@@ -613,42 +631,37 @@ class GlucoseMatrixDisplay:
         Returns:
             datetime: Closest date from the list, or None if empty
         """
+        idx = self._find_closest_date_index(target_date, date_list)
+        return date_list[idx] if idx is not None else None
+
+
+    def _find_closest_date_index(self, target_date, date_list) -> int:
+        """Find the index of the closest date in a sorted list using binary search.
+        
+        Always returns a valid index (0 to len(date_list)-1).
+        """
         if not date_list:
-            return None
-            
-        # Handle edge cases
+            raise ValueError("date_list must not be empty")
+
+        date_list = date_list[::-1]
         if target_date <= date_list[0]:
-            return date_list[0]
+            return 0
         if target_date >= date_list[-1]:
-            return date_list[-1]
-        
-        # Binary search
+            return len(date_list) - 1
+
         left, right = 0, len(date_list) - 1
-        
         while left <= right:
             mid = (left + right) // 2
             if date_list[mid] == target_date:
-                return date_list[mid]
-                
+                return mid
             if date_list[mid] < target_date:
                 left = mid + 1
             else:
                 right = mid - 1
-        
-        left = min(max(left, 0), len(date_list) - 1)
-        
-        if left == 0:
-            return date_list[0]
-        if left == len(date_list) - 1:
-            return date_list[-1]
-        
-        before = date_list[left-1]
+
+        before = date_list[left - 1]
         after = date_list[left]
-        
-        if abs((target_date - before).total_seconds()) <= abs((after - target_date).total_seconds()):
-            return before
-        else:
-            return after
+        return left - 1 if abs(target_date - before) <= abs(after - target_date) else left
 
     def inser_iob_item_from_json(self):
         """Insert latest IOB sample (with timestamp) into self.iob_list (newest first)."""
