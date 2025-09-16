@@ -41,7 +41,6 @@ class GlucoseMatrixDisplay:
         self.PIXEL_INTERVAL = 5
         self.RUN_COMMAND_MAX_COUNT = 800
         self.max_time = self.PIXEL_INTERVAL * 60 * 1000 * self.matrix_size #milliseconds
-        self.pixels_time = [datetime.datetime.now() - datetime.timedelta(minutes=i * self.PIXEL_INTERVAL) for i in range(self.matrix_size)]
         self.config = self.load_config(config_path)
         self.arrow = ''
         self.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 0, datetime.datetime.now())
@@ -611,13 +610,12 @@ class GlucoseMatrixDisplay:
                 continue
                 
             x_value = entry_dates[closest_date]
-            matrix_x = self.matrix_size - x_value - 1
                 
             if treatment.type == TreatmentEnum.BOLUS:
-                bolus_values.append((matrix_x, treatment.amount, treatment.type))
+                bolus_values.append((x_value, treatment.amount, treatment.type))
                 
             elif treatment.type == TreatmentEnum.CARBS:
-                carbs_values.append((matrix_x, treatment.amount, treatment.type))
+                carbs_values.append((x_value, treatment.amount, treatment.type))
         
         return bolus_values, carbs_values
 
