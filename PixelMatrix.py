@@ -396,20 +396,22 @@ class PixelMatrix:
         Args:
             formmated_entries: List of glucose readings to plot
         """
-        average_glucoses = self.entries_by_time
+        first_valid_point = True
 
-        for pixel_interval_index, glucose_values in enumerate(average_glucoses):
+        for pixel_interval_index, glucose_values in enumerate(self.entries_by_time):
             if not glucose_values:
                 continue
             
-            median_glucose = int(np.average(glucose_values))
+            median_glucose = int(np.mean(glucose_values))
             x = self._time_index_to_x(pixel_interval_index)
             y = self.glucose_to_y_coordinate(median_glucose)
 
             self._plot_entry(x, y, median_glucose)
 
-            if pixel_interval_index == 0:
-                self._draw_trail(x, y)
+            if first_valid_point:
+                first_valid_point = False
+                if pixel_interval_index != 0:
+                    self._draw_trail(x, y)
                 
     def average_entries_by_time(self, entries) -> List[int]:
         """Group glucose entries into buckets indexed by minutes elapsed."""
@@ -663,7 +665,7 @@ class PixelMatrix:
             if not glucose_values:
                 continue
 
-            median_glucose = int(np.average(glucose_values))
+            median_glucose = int(np.mean(glucose_values))
             x = self._time_index_to_x(minutes_index)
             y = self.glucose_to_y_coordinate(median_glucose)
 
