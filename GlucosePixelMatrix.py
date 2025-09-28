@@ -1,7 +1,5 @@
-import math
 import os
 import subprocess
-from numpy import half
 import requests
 import time
 import json
@@ -24,6 +22,18 @@ logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
 
+def get_nightmode() -> bool:
+    """Determine if current time is in night mode.
+
+    Returns:
+        bool: True if current time is night mode (21:00-06:00)
+    """
+    DAY_START = 6
+    DAY_END = 21
+    current_time = datetime.datetime.now()
+    return current_time.hour < DAY_START or current_time.hour > DAY_END
+
+
 class GlucoseMatrixDisplay:
     """Main application class for continuous glucose monitoring on LED matrix."""
     def __init__(self, config_path=os.path.join('led_matrix_configurator', 'config.json'), matrix_size=32, min_glucose=60, max_glucose=180):
@@ -35,6 +45,10 @@ class GlucoseMatrixDisplay:
             min_glucose: Minimum glucose value for scaling (mg/dL)
             max_glucose: Maximum glucose value for scaling (mg/dL)
         """
+        self.pixelMatrix = None
+        self.json_iob = None
+        self.json_treatments_data = None
+        self.json_entries_data = None
         self.matrix_size = matrix_size
         self.min_glucose = min_glucose
         self.max_glucose = max_glucose
@@ -45,12 +59,12 @@ class GlucoseMatrixDisplay:
         self.arrow = ''
         self.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 0, datetime.datetime.now())
         self.second_glucose_entry = GlucoseItem(EntrieEnum.SGV, 0, datetime.datetime.now())
-        self.formmated_entries: List[GlucoseItem] = []
-        self.formmated_treatments: List[TreatmentItem | ExerciseItem] = []
+        self.formatted_entries: List[GlucoseItem] = []
+        self.formatted_treatments: List[TreatmentItem | ExerciseItem] = []
         self.iob_list: List[IobItem] = []
         self.newer_id = None
         self.command = ''
-        self.last_nightstate = None
+        self.last_night_state = None
         self.run_command_count = 0
         self._load_config_values()
         self._setup_paths()
@@ -86,8 +100,8 @@ class GlucoseMatrixDisplay:
         self.url_treatments = f"{self.config.get('url')}/treatments.json?token={token}&count=10"
         self.url_ping_entries = f"{self.config.get('url')}/entries.json?token={token}&count=1"
         self.url_iob = f"{self.config.get('url')}/properties/iob?token={token}"
-        self.GLUCOSE_LOW = self.config.get('low bondary glucose')
-        self.GLUCOSE_HIGHT = self.config.get('high bondary glucose')
+        self.GLUCOSE_LOW = self.config.get('low boundary glucose')
+        self.GLUCOSE_HIGH = self.config.get('high boundary glucose')
         self.os = self.config.get('os', 'linux').lower()
         self.image_out = self.config.get('image out', 'led matrix')
         self.output_type = self.config.get("output type")
@@ -183,9 +197,9 @@ class GlucoseMatrixDisplay:
                     self.run_reset_command()
                     self.reset_run_command_count()
 
-                if self.last_nightstate is None or self.has_dayshift_change(self.last_nightstate):
+                if self.last_night_state is None or self.has_day_shift_changed(self.last_night_state):
                     self.run_set_brightness_command()
-                    self.last_nightstate = self.get_nightmode()
+                    self.last_night_state = get_nightmode()
 
                 if not ping_json or self.is_old_data(ping_json, self.max_time, logging_enabled=True):
                     if self.NO_DATA_IMAGE_PATH in self.command:
@@ -230,7 +244,7 @@ class GlucoseMatrixDisplay:
         self.run_command_count = 0
 
     def run_reset_command(self):
-        """Send reset command to LED matrix to clear due to memory limitation of the idot matrix."""
+        """Send reset command to LED matrix to clear due to memory limitation of the IDot matrix."""
         logging.info("Running reset command.")
         if self.os == 'windows':
             command = f"idotmatrix/run_in_venv.bat --address {self.ip} --reset"
@@ -241,7 +255,7 @@ class GlucoseMatrixDisplay:
 
     def run_set_brightness_command(self):
         """Send Adjust LED matrix brightness based on day/night mode."""
-        brightness = self.night_brightness if self.get_nightmode() else 100
+        brightness = self.night_brightness if get_nightmode() else 100
         if self.os == 'windows':
             command = f"idotmatrix/run_in_venv.bat --address {self.ip} --set-brightness {brightness}"
         else:
@@ -251,8 +265,8 @@ class GlucoseMatrixDisplay:
 
     def reset_formmated_jsons(self):
         """Clear the formatted data arrays for next update cycle."""
-        self.formmated_entries = []
-        self.formmated_treatments = []
+        self.formatted_entries = []
+        self.formatted_treatments = []
 
     def fetch_json_data(self, url, retries=5, delay=10, fallback_delay=300):
         """Fetch JSON data from Nightscout server with retry logic.
@@ -301,7 +315,7 @@ class GlucoseMatrixDisplay:
 
     def set_arrow(self):
         """Extract glucose trend arrow from latest SGV entry."""
-        for item in self.formmated_entries:
+        for item in self.formatted_entries:
             if item.type == EntrieEnum.SGV:
                 self.arrow = item.direction
                 break
@@ -313,9 +327,9 @@ class GlucoseMatrixDisplay:
         self.extract_first_and_second_value()
         self.set_arrow()
         self.delete_outdated_iob_items()
-        self.inser_iob_item_from_json()
+        self.insert_iob_item_from_json()
         
-    def has_dayshift_change(self, previus_nightmode: bool):
+    def has_day_shift_changed(self, previus_nightmode: bool):
         """Check if day/night mode has changed since last update.
         
         Args:
@@ -324,19 +338,8 @@ class GlucoseMatrixDisplay:
         Returns:
             bool: True if mode has changed
         """
-        nightmode = self.get_nightmode()
-        return nightmode != previus_nightmode
-        
-    def get_nightmode(self) -> bool:
-        """Determine if current time is in night mode.
-        
-        Returns:
-            bool: True if current time is night mode (21:00-06:00)
-        """
-        DAY_START = 6
-        DAY_END = 21
-        current_time = datetime.datetime.now()
-        return current_time.hour < DAY_START or current_time.hour > DAY_END
+        night_mode = get_nightmode()
+        return night_mode != previus_nightmode
 
     def build_pixel_matrix(self) -> PixelMatrix:
         """Construct the complete pixel matrix with all data visualizations.
@@ -349,10 +352,10 @@ class GlucoseMatrixDisplay:
         exercise_indexes = self.get_exercises_index()
         interpolated_iob_items = self.get_interpolated_iob_series()
 
-        pixelMatrix = PixelMatrix(self.matrix_size,self.min_glucose,self.max_glucose, self.GLUCOSE_LOW, self.GLUCOSE_HIGHT, self.night_brightness, self.PIXEL_INTERVAL)
-        pixelMatrix.set_formmated_entries(self.formmated_entries)
-        pixelMatrix.average_entries_by_time(self.formmated_entries)
-        pixelMatrix.set_formmated_treatments(self.formmated_treatments)
+        pixelMatrix = PixelMatrix(self.matrix_size, self.min_glucose, self.max_glucose, self.GLUCOSE_LOW, self.GLUCOSE_HIGH, self.night_brightness, self.PIXEL_INTERVAL)
+        pixelMatrix.set_formmated_entries(self.formatted_entries)
+        pixelMatrix.average_entries_by_time(self.formatted_entries)
+        pixelMatrix.set_formmated_treatments(self.formatted_treatments)
         pixelMatrix.set_arrow(self.arrow)
         pixelMatrix.set_glucose_difference()
 
@@ -375,7 +378,7 @@ class GlucoseMatrixDisplay:
     def extract_first_and_second_value(self):
         """Extract the two most recent glucose values."""
         first_value_saved_flag = False
-        for item in self.formmated_entries:
+        for item in self.formatted_entries:
             if item.type == EntrieEnum.SGV and not first_value_saved_flag:
                 self.first_glucose_entry = item
                 first_value_saved_flag = True
@@ -389,7 +392,7 @@ class GlucoseMatrixDisplay:
         """Calculate pixel indexes for exercise periods overlapping the matrix window.
         
         Returns:
-            set[int]: Indexes (0..matrix_size-1) representing times where exercise periods overlap pixels.
+            set[int]: Indexes (0...matrix_size-1) representing times where exercise periods overlap pixels.
         """
         exercise_indexes: set[int] = set()
 
@@ -403,7 +406,7 @@ class GlucoseMatrixDisplay:
         newest_time = self.pixels_time[0]
         oldest_time = self.pixels_time[-1]
 
-        for treatment in self.formmated_treatments:
+        for treatment in self.formatted_treatments:
             if treatment.type != TreatmentEnum.EXERCISE:
                 continue
 
@@ -432,9 +435,6 @@ class GlucoseMatrixDisplay:
 
     def generate_list_from_entries_json(self):
         """Convert JSON entries data to GlucoseItem objects.
-        
-        Args:
-            entries_margin: Extra entries to fetch beyond matrix size
         """
         for item in self.json_entries_data:
             treatment_date = datetime.datetime.strptime(item.get("dateString"), "%Y-%m-%dT%H:%M:%S.%fZ")
@@ -442,14 +442,14 @@ class GlucoseMatrixDisplay:
             if treatment_date < datetime.datetime.now() - datetime.timedelta(minutes= self.matrix_size * self.PIXEL_INTERVAL + self.PIXEL_INTERVAL / 2):
                 break
             if item.get("type") == EntrieEnum.SGV:
-                self.formmated_entries.append(GlucoseItem(EntrieEnum.SGV,
-                                                  int(item.get(EntrieEnum.SGV)),
-                                                  treatment_date,
-                                                  item.get("direction")))
+                self.formatted_entries.append(GlucoseItem(EntrieEnum.SGV,
+                                                          int(item.get(EntrieEnum.SGV)),
+                                                          treatment_date,
+                                                          item.get("direction")))
             elif item.get("type") == EntrieEnum.MBG:
-                self.formmated_entries.append(GlucoseItem(EntrieEnum.MBG,
-                                                  int(item.get(EntrieEnum.MBG)),
-                                                  treatment_date))
+                self.formatted_entries.append(GlucoseItem(EntrieEnum.MBG,
+                                                          int(item.get(EntrieEnum.MBG)),
+                                                          treatment_date))
 
     def generate_list_from_treatments_json(self):
         """Convert JSON treatments data to TreatmentItem and ExerciseItem objects."""
@@ -460,23 +460,23 @@ class GlucoseMatrixDisplay:
             if item.get("eventType") == TreatmentEnum.CARBS.value:
                 if not item.get("carbs"):
                     continue
-                self.formmated_treatments.append(TreatmentItem(item.get("_id"),
-                                                                    TreatmentEnum.CARBS,
-                                                                    time,
-                                                                    item.get("carbs")))
+                self.formatted_treatments.append(TreatmentItem(item.get("_id"),
+                                                               TreatmentEnum.CARBS,
+                                                               time,
+                                                               item.get("carbs")))
             elif item.get("eventType") == TreatmentEnum.BOLUS.value:
                 if not item.get("insulin"):
                     continue
-                self.formmated_treatments.append(TreatmentItem(item.get("_id"),
-                                                                    TreatmentEnum.BOLUS,
-                                                                    time,
-                                                                    item.get("insulin")))
+                self.formatted_treatments.append(TreatmentItem(item.get("_id"),
+                                                               TreatmentEnum.BOLUS,
+                                                               time,
+                                                               item.get("insulin")))
             elif item.get("eventType") == TreatmentEnum.EXERCISE.value:
                 if not item.get("duration"):
                     continue
-                self.formmated_treatments.append(ExerciseItem(TreatmentEnum.EXERCISE,
-                                                                    time,
-                                                                    int(item.get("duration"))))
+                self.formatted_treatments.append(ExerciseItem(TreatmentEnum.EXERCISE,
+                                                              time,
+                                                              int(item.get("duration"))))
     
     def calc_glucose_difference(self) -> int:
         """
@@ -484,7 +484,7 @@ class GlucoseMatrixDisplay:
         and the interpolated value 5 minutes before.
         Handles irregular intervals by linear interpolation.
         """
-        if not self.formmated_entries or len(self.formmated_entries) < 2:
+        if not self.formatted_entries or len(self.formatted_entries) < 2:
             return 0
 
         # most recent entry
@@ -494,7 +494,7 @@ class GlucoseMatrixDisplay:
         # find two entries surrounding target_time
         before = None
         after = None
-        for entry in self.formmated_entries[1:]:
+        for entry in self.formatted_entries[1:]:
             if entry.type != EntrieEnum.SGV:
                 continue
             
@@ -513,10 +513,8 @@ class GlucoseMatrixDisplay:
                 ratio = (target_time - before.date).total_seconds() / total_delta
                 past_glucose = before.glucose + ratio * (after.glucose - before.glucose)
         elif before:  
-            # no after entry, use nearest before
             past_glucose = before.glucose
         elif after:   
-            # no before entry, use nearest after
             past_glucose = after.glucose
         else:
             return 0
@@ -571,7 +569,7 @@ class GlucoseMatrixDisplay:
             int: Time difference in minutes
         """
         current_time = datetime.datetime.now()
-        time_difference = current_time - self.formmated_entries[0].date
+        time_difference = current_time - self.formatted_entries[0].date
         minutes_difference = time_difference.total_seconds() // 60
         return int(minutes_difference)
 
@@ -581,19 +579,19 @@ class GlucoseMatrixDisplay:
         Returns:
             tuple: Three lists (bolus_values, carbs_values, exercise_values)
         """
-        if not self.formmated_entries:
+        if not self.formatted_entries:
             logging.warning("No glucose entries available.")
             return [], []
 
-        newer_entry_time = self.formmated_entries[0].date
-        older_entry_time = self.formmated_entries[-1].date
+        newer_entry_time = self.formatted_entries[0].date
+        older_entry_time = self.formatted_entries[-1].date
 
         entry_dates = {entry: idx for idx, entry in enumerate(self.pixels_time)}
 
         bolus_values = []
         carbs_values = []
 
-        for treatment in self.formmated_treatments:
+        for treatment in self.formatted_treatments:
             # Skip treatments outside the time window
             treatment_end_time = (treatment.date + datetime.timedelta(minutes=treatment.amount) 
                                 if treatment.type == TreatmentEnum.EXERCISE else treatment.date)
@@ -623,7 +621,7 @@ class GlucoseMatrixDisplay:
         """Find the closest date in a sorted list using binary search.
         
         Args:
-            target_date: Date to find closest match for
+            target_date: Date to find the closest match for
             date_list: Sorted list of datetime objects
             
         Returns:
@@ -661,7 +659,7 @@ class GlucoseMatrixDisplay:
         after = date_list[left]
         return left - 1 if abs(target_date - before) <= abs(after - target_date) else left
 
-    def inser_iob_item_from_json(self):
+    def insert_iob_item_from_json(self):
         """Insert latest IOB sample (with timestamp) into self.iob_list (newest first)."""
         iob_value = self.json_iob.get("iob", {}).get("iob", None)
 
