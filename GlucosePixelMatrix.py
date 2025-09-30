@@ -46,9 +46,6 @@ class GlucoseMatrixDisplay:
             max_glucose: Maximum glucose value for scaling (mg/dL)
         """
         self.pixelMatrix = None
-        self.json_iob = None
-        self.json_treatments_data = None
-        self.json_entries_data = None
         self.matrix_size = matrix_size
         self.min_glucose = min_glucose
         self.max_glucose = max_glucose
@@ -675,7 +672,7 @@ class GlucoseMatrixDisplay:
             return
 
         oldest_pixel_time = self.pixels_time[-1]
-        delta = datetime.timedelta(minutes=5)
+        delta = datetime.timedelta(minutes=self.PIXEL_INTERVAL)
 
         while self.iob_list and self.iob_list[-1].date < oldest_pixel_time - delta:
             self.iob_list.pop()

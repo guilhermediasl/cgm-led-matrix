@@ -2,3 +2,5 @@ app.log
 *.pyc
 /temp
 led_matrix_configurator/config.json
+.coverage
+.idea

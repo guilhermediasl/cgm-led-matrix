@@ -68,6 +68,8 @@ class PixelMatrix:
             recent_values = [v for v in buckets if v is not None][:2]
             if len(recent_values) == 2:
                 diff = recent_values[0] - recent_values[1]
+            else:
+                diff = 0
         # Fallback to raw entries if needed
         if diff == 0 and (not buckets or sum(v is not None for v in buckets) < 2):
             entries = getattr(self, "formmated_entries", [])
