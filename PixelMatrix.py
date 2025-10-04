@@ -6,7 +6,7 @@ import png
 import pytz
 from PIL import Image
 import os
-from patterns import digit_patterns, arrow_patterns, signal_patterns
+from patterns import get_digit_patterns, get_arrow_patterns, get_signal_patterns
 from util import Color, EntrieEnum, GlucoseItem, IobItem, TreatmentItem, ColorType, ExerciseItem
 
 class PixelMatrix:
@@ -289,7 +289,7 @@ class PixelMatrix:
             int: X coordinate after drawing (for chaining)
         """
         for digit in text:
-            pattern = digit_patterns()[digit]
+            pattern = get_digit_patterns()[digit]
             self.draw_pattern(pattern, x, y, color)
             x += self.get_digit_width(digit) + 1
         return x
@@ -332,7 +332,7 @@ class PixelMatrix:
         """
         width = 0
         for digit in glucose_str:
-            width += len(digit_patterns()[digit][0])
+            width += len(get_digit_patterns()[digit][0])
         return width
 
     def display_glucose_on_matrix(self, glucose_value: int) -> None:
@@ -354,8 +354,8 @@ class PixelMatrix:
             glucose_str = str(glucose_value)
             color = Color.white.rgb
 
-        arrow_pattern = arrow_patterns().get(self.arrow, np.zeros((DIGIT_HEIGHT, DIGIT_HEIGHT)))
-        signal_pattern = signal_patterns()[self.get_glucose_difference_signal(self.glucose_difference)]
+        arrow_pattern = get_arrow_patterns().get(self.arrow, np.zeros((DIGIT_HEIGHT, DIGIT_HEIGHT)))
+        signal_pattern = get_signal_patterns()[self.get_glucose_difference_signal(self.glucose_difference)]
         glucose_diff_str = str(abs(self.glucose_difference))
 
         glucose_digits_width = self.get_digits_width(glucose_str) + (len(glucose_str) - 1) * SPACING
@@ -390,7 +390,7 @@ class PixelMatrix:
         Returns:
             int: Width in pixels
         """
-        return len(digit_patterns()[digit][0])
+        return len(get_digit_patterns()[digit][0])
 
     def display_entries(self):
         """Display glucose readings as a timeline graph.
@@ -794,3 +794,176 @@ class PixelMatrix:
             bool: True if positions are 5 apart
         """
         return (current - init + 1) % 5 == 0
+
+    def draw_time_display(self, position="top-right", format_type="HH:MM", fade_strength=0.3):
+        """Draw time on the matrix.
+        
+        Args:
+            position: Where to place time
+            format_type: Time format
+            fade_strength: Brightness level for time display (0.0 to 1.0)
+        """
+        now = datetime.now()
+        
+        # Format time string based on type
+        if format_type == "compact":
+            time_str = now.strftime("%H%M")
+        elif format_type == "HH:MM:SS":
+            time_str = now.strftime("%H:%M:%S")
+        elif format_type == "MM:SS":
+            time_str = now.strftime("%M:%S")
+        else:  # Default to "HH:MM"
+            time_str = now.strftime("%H:%M")
+        
+        # Calculate text width
+        text_width = self._get_time_text_width(time_str)
+        
+        # Define clear positions that avoid the glucose display area
+        if position == "top-left":
+            x = 0
+            y = 3 + self.glucose_to_y_coordinate(self.GLUCOSE_HIGH)
+        elif position == "top-right":
+            x = self.matrix_size - text_width - 1
+            y = 3 + self.glucose_to_y_coordinate(self.GLUCOSE_HIGH)
+        elif position == "bottom-left":
+            x = 0
+            y = self.matrix_size - 7  # Leave room for 5-pixel high digits
+        elif position == "bottom-right":
+            x = self.matrix_size - text_width - 1
+            y = self.matrix_size - 7
+        elif position == "bottom":
+            x = 2  # Slightly from left to avoid conflicts
+            y = self.matrix_size - 7
+        else:  # default to top-left
+            x = 1
+            y = 1
+        
+        # Ensure coordinates are within bounds
+        x = max(0, min(x, self.matrix_size - text_width))
+        y = max(0, min(y, self.matrix_size - 6))
+        
+        color = self.fade_color(Color.white.rgb, fade_strength)
+        self._draw_time_text(time_str, x, y, color)
+
+    def _draw_time_text(self, text, start_x, start_y, color):
+        """Draw time text using time-specific patterns.
+        
+        Args:
+            text: Text to draw
+            start_x: Starting X coordinate
+            start_y: Starting Y coordinate
+            color: ColorType for the text
+            
+        Returns:
+            int: Final X coordinate after drawing
+        """
+        time_patterns = get_digit_patterns()
+        current_x = start_x
+        
+        for char in text:
+            current_color = color
+            spacing = 1  # Default spacing
+            
+            # Special handling for colon character
+            if char == ':':
+                # Make colon 50% more faded (reduce brightness by 50%)
+                current_color = self.fade_color(color, 0.5)  # 50% more faded
+                spacing = 0 
+                current_x -= 1
+            
+            if char in time_patterns:
+                pattern = time_patterns[char]
+                # Draw the pattern pixel by pixel to ensure it's visible
+                for row in range(pattern.shape[0]):
+                    for col in range(pattern.shape[1]):
+                        if pattern[row, col] == 1:
+                            pixel_x = current_x + col
+                            pixel_y = start_y + row
+                            if (0 <= pixel_x < self.matrix_size and 
+                                0 <= pixel_y < self.matrix_size):
+                                self.set_pixel(pixel_x, pixel_y, current_color.r, current_color.g, current_color.b)
+                current_x += pattern.shape[1] + spacing  # Use variable spacing
+            else:
+                # Fallback to regular digit patterns
+                digit_patterns = get_digit_patterns()
+                if char in digit_patterns:
+                    pattern = digit_patterns[char]
+                    for row in range(pattern.shape[0]):
+                        for col in range(pattern.shape[1]):
+                            if pattern[row, col] == 1:
+                                pixel_x = current_x + col
+                                pixel_y = start_y + row
+                                if (0 <= pixel_x < self.matrix_size and 
+                                    0 <= pixel_y < self.matrix_size):
+                                    self.set_pixel(pixel_x, pixel_y, current_color.r, current_color.g, current_color.b)
+                    current_x += pattern.shape[1] + spacing  # Use variable spacing
+
+        return current_x
+
+    def draw_corner_time(self, position="top-right", format_type="HH:MM"):
+        """Draw time in matrix corner with automatic positioning.
+        
+        Args:
+            position: "top-left", "top-right", "bottom-left", "bottom-right"
+            compact: If True, use HHMM format; if False, use HH:MM
+        """
+        fade_strength = 0.9  # Subtle display for corner
+        
+        self.draw_time_display(position, format_type, fade_strength)
+
+    def display_time_with_blink(self, x_offset=0, y_offset=0, fade_strength=0.4):
+        """Display time with blinking separator (every second).
+        
+        Args:
+            x_offset: X position offset for time display
+            y_offset: Y position offset for time display
+            fade_strength: Brightness level for time display
+        """
+        now = datetime.now()
+        hours = now.strftime("%HH")
+        minutes = now.strftime("%MM")
+        
+        color = self.fade_color(Color.cyan.rgb, fade_strength)
+        time_patterns = get_digit_patterns()
+        
+        # Draw hours
+        current_x = self._draw_time_text(hours, x_offset, y_offset, color)
+        
+        # Draw blinking colon (blink every second)
+        if now.second % 2 == 0:
+            if ':' in time_patterns:
+                colon_pattern = time_patterns[':']
+                self.draw_pattern(colon_pattern, current_x, y_offset, color)
+    
+        current_x += 2  # Space for colon
+    
+        # Draw minutes
+        self._draw_time_text(minutes, current_x, y_offset, color)
+
+    def _get_time_text_width(self, time_str):
+        """Calculate the width needed for time text display.
+        
+        Args:
+            time_str: Time string to measure
+            
+        Returns:
+            int: Width in pixels needed for the text
+        """
+        try:
+            time_patterns = get_digit_patterns()
+        except:
+            # Fallback to digit patterns if time patterns not available
+            time_patterns = get_digit_patterns()
+        
+        total_width = 0
+        
+        for char in time_str:
+            if char in time_patterns:
+                pattern = time_patterns[char]
+                total_width += pattern.shape[1] + 1  # Add 1 for spacing
+            elif char in get_digit_patterns():
+                # Fallback to digit patterns
+                pattern = get_digit_patterns()[char]
+                total_width += pattern.shape[1] + 1
+        
+        return max(1, total_width - 1)  # Remove last spacing

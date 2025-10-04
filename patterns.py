@@ -17,7 +17,9 @@ DIGIT_PATTERNS: Final[Dict[str, np.ndarray]] = {
     'W': np.array([[1, 0, 0, 0, 1], [1, 0, 0, 0, 1], [1, 0, 1, 0, 1], [1, 0, 1, 0, 1], [0, 1, 0, 1, 0]]),
     'H': np.array([[1, 0, 1], [1, 0, 1], [1, 1, 1], [1, 0, 1], [1, 0, 1]]),
     'I': np.array([[1], [1], [1], [1], [1]]),
-    'G': np.array([[1, 1, 1], [1, 0, 0], [1, 0, 1], [1, 0, 1], [1, 1, 1]])
+    'G': np.array([[1, 1, 1], [1, 0, 0], [1, 0, 1], [1, 0, 1], [1, 1, 1]]),
+    ':': np.array([[0], [1], [0], [1], [0]]),
+    '.': np.array([[0], [0], [0], [1], [0]])
 }
 
 ARROW_PATTERNS: Final[Dict[str, np.ndarray]] = {
@@ -78,11 +80,11 @@ SIGNAL_PATTERNS: Final[Dict[str, np.ndarray]] = {
                    [0, 0, 0]])
 }
 
-def digit_patterns() -> Dict[str, np.ndarray]:
+def get_digit_patterns() -> Dict[str, np.ndarray]:
     return DIGIT_PATTERNS
 
-def arrow_patterns() -> Dict[str, np.ndarray]:
+def get_arrow_patterns() -> Dict[str, np.ndarray]:
     return ARROW_PATTERNS
 
-def signal_patterns() -> Dict[str, np.ndarray]:
+def get_signal_patterns() -> Dict[str, np.ndarray]:
     return SIGNAL_PATTERNS

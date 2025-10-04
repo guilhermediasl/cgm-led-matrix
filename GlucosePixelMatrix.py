@@ -104,6 +104,12 @@ class GlucoseMatrixDisplay:
         self.output_type = self.config.get("output type")
         self.night_brightness = self.config.get('night_brightness')
         self.PLOT_GLUCOSE_INTERVALS: bool = self.config.get('plot glucose intervals', True)
+        
+        # Add time configuration
+        self.show_time = self.config.get('show_time', False)
+        self.time_format = self.config.get('time_format', 'HH:MM')
+        self.time_position = self.config.get('time_position', 'top-right')
+        self.time_color_fade = self.config.get('time_color_fade', 0.3)
 
     def _setup_paths(self):
         """Initialize file paths for images and outputs."""
@@ -366,6 +372,12 @@ class GlucoseMatrixDisplay:
         pixelMatrix.draw_bolus(bolus_with_x_values)
         pixelMatrix.draw_exercise(exercise_indexes)
         
+        # Add time display if enabled
+        if self.show_time:
+            pixelMatrix.draw_corner_time(
+                position=self.time_position,
+                format_type=self.time_format
+            )
         
         pixelMatrix.display_entries()
         pixelMatrix.display_glucose_on_matrix(self.first_glucose_entry.glucose)
