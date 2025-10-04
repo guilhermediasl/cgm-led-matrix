@@ -173,9 +173,9 @@ class PixelMatrix:
                     temp_color = self.fade_color(color, 0.3)
             if enable_five:
                 if self.is_five_apart(start_y, y):
-                    fade_amount = 1.2
+                    fade_amount = 1.4
                 else:
-                    fade_amount = 0.6
+                    fade_amount = 0.8
                     
                 temp_color = self.fade_color(color, fade_amount)
 
@@ -681,6 +681,18 @@ class PixelMatrix:
 
             x_prev, previous_y = x, y
 
+    def draw_box(self, x1: int, y1: int, x2: int, y2: int, color: ColorType) -> None:
+        """Draw a rectangular box on the matrix, with infill.
+        
+        Args:
+            x1, y1: Top-left corner coordinates
+            x2, y2: Bottom-right corner coordinates
+            color: RGB color of the box
+        """
+        for x in range(x1, x2 + 1):
+            for y in range(y1, y2 + 1):
+                self.set_pixel(x, y, *color)
+        
 
     def _plot_faded_interval(self, x1: int, y1: int, x2: int, y2: int, glucose: int, fade_strength: float) -> None:
         """Draw a faded line interval between two glucose values."""

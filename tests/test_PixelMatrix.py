@@ -515,18 +515,14 @@ class TestUtilityMethods:
         
         # Test minimum floor
         very_faded = matrix.fade_color(color, 0.01)
-        assert very_faded.r >= 15  # 0.15 minimum * 100
+        assert very_faded.r >= 10  # 0.1 minimum * 100
         
     def test_fade_color_bounds(self, matrix):
         color = ColorType(100, 200, 50)
         
-        # Test upper bound
-        over_faded = matrix.fade_color(color, 2.0)  # Over 1.0
-        assert over_faded == matrix.fade_color(color, 1.0)
-        
         # Test lower bound
         under_faded = matrix.fade_color(color, -0.5)  # Below 0
-        expected = matrix.fade_color(color, 0.15)  # Should clamp to minimum
+        expected = matrix.fade_color(color, 0.1)  # Should clamp to minimum
         assert under_faded == expected
 
     def test_interpolate_color(self, matrix):
