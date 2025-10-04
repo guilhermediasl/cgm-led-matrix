@@ -173,7 +173,7 @@ class PixelMatrix:
                     temp_color = self.fade_color(color, 0.3)
             if enable_five:
                 if not self.is_five_apart(start_y, y):
-                    temp_color = self.fade_color(color, 0.5)
+                    temp_color = self.fade_color(color, 1.2)
 
             self.set_pixel(x, y, *temp_color)
 
@@ -724,7 +724,7 @@ class PixelMatrix:
         Returns:
             ColorType: Adjusted RGB color
         """
-        percentil = max(0.15, min(1.0, percentil))
+        percentil = max(0.15, percentil)
         
         r = int(color.r * percentil)
         g = int(color.g * percentil)
