@@ -175,7 +175,7 @@ class PixelMatrix:
                 if self.is_five_apart(start_y, y):
                     fade_amount = 1.2
                 else:
-                    fade_amount = 0.8
+                    fade_amount = 0.6
                     
                 temp_color = self.fade_color(color, fade_amount)
 
