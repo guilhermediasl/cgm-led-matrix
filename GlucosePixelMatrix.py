@@ -36,7 +36,7 @@ def get_nightmode() -> bool:
 
 class GlucoseMatrixDisplay:
     """Main application class for continuous glucose monitoring on LED matrix."""
-    def __init__(self, config_path=os.path.join('led_matrix_configurator', 'config.json'), matrix_size=32, min_glucose=60, max_glucose=180):
+    def __init__(self, config_path=os.path.join('configurator', 'config.json'), matrix_size=32, min_glucose=60, max_glucose=180):
         """Initialize the glucose matrix display system.
         
         Args:
@@ -81,7 +81,19 @@ class GlucoseMatrixDisplay:
         """
         try:
             logging.info(f"Loading configuration from {config_path}")
-            with open(config_path, 'r') as file:
+            if not os.path.exists(config_path):
+                # Try to populate from example shipped with configurator
+                if os.path.exists(self.CONFIG_EXAMPLE_JSON_PATH):
+                    try:
+                        with open(self.CONFIG_EXAMPLE_JSON_PATH, 'r', encoding='utf-8') as src, open(config_path, 'w', encoding='utf-8') as dst:
+                            dst.write(src.read())
+                        logging.info(f"Created missing config from example at {config_path}")
+                    except Exception as e:
+                        logging.error(f"Failed to write config from example: {e}")
+                else:
+                    logging.error(f"Config not found and example not available: {config_path}")
+
+            with open(config_path, 'r', encoding='utf-8') as file:
                 config = json.load(file)
                 logging.info(f"Configuration loaded successfully: {config}")
                 return config
@@ -117,6 +129,7 @@ class GlucoseMatrixDisplay:
         self.NO_WIFI_IMAGE_PATH = os.path.join('images', 'no_wifi.png')
         self.OUTPUT_IMAGE_PATH = os.path.join("temp", "output_image.png")
         self.OUTPUT_GIF_PATH = os.path.join("temp", "output_gif.gif")
+        self.CONFIG_EXAMPLE_JSON_PATH = os.path.join('configurator', 'config.example.json')
                
     def update_glucose_command(self, image_path=None):
         """Update the LED matrix with latest glucose data.

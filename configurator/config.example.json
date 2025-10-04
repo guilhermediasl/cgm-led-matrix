@@ -1,0 +1,17 @@
+{
+  "token": "your-nightscout-token",
+  "url": "https://your-nightscout-url/api/v2",
+  "ip": "XX:XX:XX:XX:XX:XX",
+  "output type": "gif",
+  "image out": "pc",
+  "os": "windows",
+  "show_time": true,
+  "time_format": "12h",
+  "time_position": "bottom-left",
+  "time_color_fade": 0.4,
+  "plot glucose intervals": true,
+  "low boundary glucose": 70,
+  "high boundary glucose": 160,
+  "night_brightness": 10,
+  "PIXEL_INTERVAL": 5
+}

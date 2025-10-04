@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Config Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #282a36;
+            color: #f8f8f2;
+        }
+        header {
+            background-color: #44475a;
+            color: #f8f8f2;
+            padding: 1em 0;
+            text-align: center;
+        }
+        main {
+            padding: 1.5em;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #44475a;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+        .config-item {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1em;
+        }
+        .config-item label {
+            margin-bottom: 0.5em;
+            color: #50fa7b; /* Dracula green */
+            font-weight: bold;
+        }
+        .config-item input {
+            padding: 0.5em;
+            border: 1px solid #6272a4;
+            border-radius: 4px;
+            background: #282a36;
+            color: #f8f8f2;
+        }
+        /* Dracula-style checkbox */
+        input[type="checkbox"] {
+            /* hide default checkbox appearance for consistent styling */
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid #6272a4;
+            background: #282a36;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+            position: relative;
+            cursor: pointer;
+        }
+        input[type="checkbox"]:checked {
+            background: linear-gradient(180deg, #50fa7b 0%, #2ebd52 100%);
+            border-color: #50fa7b;
+        }
+        input[type="checkbox"]:checked::after {
+            content: '\2713'; /* checkmark */
+            color: #0b0b0b;
+            font-weight: bold;
+            position: absolute;
+            left: 3px;
+            top: -2px;
+            font-size: 16px;
+        }
+        label.checkbox-label { display: inline-flex; align-items: center; gap: 6px; }
+        button {
+            display: inline-block;
+            background: #34b153;
+            color: #282a36;
+            padding: 0.5em 1em;
+            font-size: 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #185225;
+        }
+        section {
+            margin-bottom: 2em;
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        pre {
+            background: #282a36;
+            color: #f8f8f2;
+            padding: 1em;
+            border-radius: 4px;
+            border: 1px solid #6272a4;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Configuration Interface</h1>
+    </header>
+    <main>
+        <section>
+            <h2>Edit Configuration</h2>
+            <div id="status" class="help">Loading schema…</div>
+            <form id="configForm">
+              <div id="formFields"></div>
+              <div style="text-align:center; margin-top:12px;">
+                <button id="saveBtn" class="btn">Save</button>
+              </div>
+            </form>
+        </section>
+        <section>
+            <h2>Application Logs</h2>
+            <pre id="logs">Loading logs...</pre>
+        </section>
+        <section>
+            <h2>Git Pull</h2>
+            <button onclick="gitPull()">Run Git Pull</button>
+            <pre id="gitOutput">Git output will appear here...</pre>
+        </section>
+        <section>
+            <h2>Run Application</h2>
+            <button onclick="runApplication()">Start Application</button>
+            <pre id="runOutput">Application status will appear here...</pre>
+        </section>
+    </main>
+    <script>
+        // Dynamically load Ajv (try CDN, then local fallback). Returns a Promise that resolves when Ajv is available.
+        function loadAjv() {
+            return new Promise((resolve, reject) => {
+                if (typeof Ajv !== 'undefined') return resolve();
+
+                const cdn = document.createElement('script');
+                cdn.src = 'https://cdn.jsdelivr.net/npm/ajv@8/dist/ajv.min.js';
+                cdn.async = true;
+                cdn.onload = () => { if (typeof Ajv !== 'undefined') resolve(); else reject(new Error('Ajv loaded but not found')) };
+                cdn.onerror = () => {
+                    // Try local fallback (allowed if you place ajv.min.js under configurator/static/)
+                    const local = document.createElement('script');
+                    local.src = '/static/vendor/ajv.min.js';
+                    local.async = true;
+                    local.onload = () => { if (typeof Ajv !== 'undefined') resolve(); else reject(new Error('Local Ajv loaded but not found')); };
+                    local.onerror = () => reject(new Error('Failed to load Ajv from CDN and local fallback'));
+                    document.head.appendChild(local);
+                };
+                document.head.appendChild(cdn);
+            });
+        }
+    
+        const schemaUrl = '/schema';
+        const configUrl = '/config';
+
+        async function fetchJson(url) {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(await res.text());
+            return res.json();
+        }
+
+        function makeInputFor(key, spec, value) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'field';
+
+            const label = document.createElement('label');
+            label.textContent = key + (spec.description ? ' — ' + spec.description : '');
+            wrapper.appendChild(label);
+
+            if (spec.enum) {
+                const select = document.createElement('select');
+                select.name = key;
+                for (const opt of spec.enum) {
+                    const o = document.createElement('option');
+                    o.value = opt;
+                    o.textContent = opt;
+                    if (value == opt) o.selected = true;
+                    select.appendChild(o);
+                }
+                wrapper.appendChild(select);
+                return wrapper;
+            }
+
+            switch (spec.type) {
+            case 'boolean':
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = key;
+                checkbox.checked = !!value;
+                // wrap in a label so description and checkbox align nicely
+                const chkLabel = document.createElement('label');
+                chkLabel.className = 'checkbox-label';
+                chkLabel.appendChild(checkbox);
+                const span = document.createElement('span');
+                span.textContent = (spec.description || key);
+                chkLabel.appendChild(span);
+                wrapper.appendChild(chkLabel);
+                break;
+                case 'integer':
+                case 'number':
+                    const num = document.createElement('input');
+                    num.type = 'number';
+                    num.name = key;
+                    if (value !== undefined) num.value = value;
+                    if (spec.minimum !== undefined) num.min = spec.minimum;
+                    if (spec.maximum !== undefined) num.max = spec.maximum;
+                    wrapper.appendChild(num);
+                    break;
+                default:
+                    const text = document.createElement('input');
+                    text.type = 'text';
+                    text.name = key;
+                    if (value !== undefined) text.value = value;
+                    wrapper.appendChild(text);
+            }
+
+            if (spec.description) {
+                const help = document.createElement('div');
+                help.className = 'help';
+                help.textContent = spec.description;
+                wrapper.appendChild(help);
+            }
+
+            return wrapper;
+        }
+
+        function buildForm(schema, config) {
+            const container = document.getElementById('formFields');
+            container.innerHTML = '';
+            const props = schema.properties || {};
+            for (const [key, spec] of Object.entries(props)) {
+                const val = (config && config.hasOwnProperty(key)) ? config[key] : undefined;
+                container.appendChild(makeInputFor(key, spec, val));
+            }
+        }
+
+        function readForm(schema) {
+            const form = document.getElementById('configForm');
+            const data = {};
+            const props = schema.properties || {};
+            for (const key of Object.keys(props)) {
+                const spec = props[key];
+                const el = form.elements[key];
+                if (!el) continue;
+                if (spec.enum) {
+                    data[key] = el.value;
+                    continue;
+                }
+                switch (spec.type) {
+                    case 'boolean':
+                        data[key] = !!el.checked;
+                        break;
+                    case 'integer':
+                        data[key] = el.value === '' ? null : parseInt(el.value, 10);
+                        break;
+                    case 'number':
+                        data[key] = el.value === '' ? null : parseFloat(el.value);
+                        break;
+                    default:
+                        data[key] = el.value;
+                }
+            }
+            return data;
+        }
+
+        async function init() {
+            try {
+                const schema = await fetchJson(schemaUrl);
+                const cfgRes = await fetchJson(configUrl);
+                const config = cfgRes.config || {};
+                document.getElementById('status').textContent = 'Schema and config loaded.';
+                buildForm(schema, config);
+
+                        try {
+                            await loadAjv();
+                        } catch (err) {
+                            document.getElementById('status').innerHTML = '<div class="error">JSON Schema validator (Ajv) could not be loaded: ' + err.message + '. Please ensure the browser can load the CDN or place a copy at /static/vendor/ajv.min.js.</div>';
+                            return;
+                        }
+
+                        const ajv = new Ajv();
+                const validate = ajv.compile(schema);
+
+                document.getElementById('configForm').addEventListener('submit', async (ev) => {
+                    ev.preventDefault();
+                    const data = readForm(schema);
+                    const valid = validate(data);
+                    const status = document.getElementById('status');
+                    if (!valid) {
+                        status.innerHTML = '<div class="error">Validation errors:<br/>' + validate.errors.map(e => `${e.instancePath || '/'} ${e.message}`).join('<br/>') + '</div>';
+                        return;
+                    }
+                    const res = await fetch('/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                    const json = await res.json();
+                    if (!res.ok) {
+                        status.innerHTML = '<div class="error">Server errors: ' + JSON.stringify(json) + '</div>';
+                    } else {
+                        status.textContent = json.message || 'Saved';
+                    }
+                });
+
+            } catch (err) {
+                document.getElementById('status').textContent = 'Error loading schema or config: ' + err;
+            }
+        }
+
+        // Log helpers (preserve previous behavior)
+        function fetchLogs() {
+            fetch('/logs')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('logs').innerText = data.logs || "No logs available.";
+                })
+                .catch(error => {
+                    document.getElementById('logs').innerText = "Error fetching logs: " + error.message;
+                });
+        }
+
+        function gitPull() {
+            fetch('/git-pull', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('gitOutput').innerText = data.output || "Git pull executed.";
+                })
+                .catch(error => {
+                    document.getElementById('gitOutput').innerText = "Error running git pull: " + error.message;
+                });
+        }
+
+        function runApplication() {
+            fetch('/run', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('runOutput').innerText = data.message || "Run invoked";
+                })
+                .catch(error => {
+                    document.getElementById('runOutput').innerText = "Network error: " + error.message;
+                });
+        }
+
+        setInterval(fetchLogs, 5000);
+        fetchLogs();
+        init();
+    </script>
+</body>
+</html>
