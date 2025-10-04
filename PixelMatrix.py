@@ -859,7 +859,7 @@ class PixelMatrix:
         y = max(0, min(y, self.matrix_size - 6))
         
         color = self.fade_color(Color.white.rgb, fade_strength)
-        self.draw_box(x - 1, y , x + text_width - 3, y + 4, self.fade_color(Color.white.rgb, .2))
+        self.draw_box(x - 1, y , x + text_width - 3, y + 4, self.fade_color(Color.white.rgb, .1))
         self._draw_time_text(time_str, x, y, color)
 
     def _draw_time_text(self, text, start_x, start_y, color):
@@ -924,7 +924,7 @@ class PixelMatrix:
             position: "top-left", "top-right", "bottom-left", "bottom-right"
             compact: If True, use HHMM format; if False, use HH:MM
         """
-        fade_strength = 0.6
+        fade_strength = 1
         
         self.draw_time_display(position, format_type, fade_strength)
 
