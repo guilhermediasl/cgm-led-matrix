@@ -827,7 +827,7 @@ class PixelMatrix:
             y = 3 + self.glucose_to_y_coordinate(self.GLUCOSE_HIGH)
         elif position == "bottom-left":
             x = 0
-            y = self.matrix_size - 7  # Leave room for 5-pixel high digits
+            y = self.glucose_to_y_coordinate(self.GLUCOSE_LOW) - 4
         elif position == "bottom-right":
             x = self.matrix_size - text_width - 1
             y = self.matrix_size - 7
@@ -867,7 +867,7 @@ class PixelMatrix:
             # Special handling for colon character
             if char == ':':
                 # Make colon 50% more faded (reduce brightness by 50%)
-                current_color = self.fade_color(color, 0.5)  # 50% more faded
+                current_color = self.fade_color(color, 0.3)  # 50% more faded
                 spacing = 0 
                 current_x -= 1
             
@@ -907,7 +907,7 @@ class PixelMatrix:
             position: "top-left", "top-right", "bottom-left", "bottom-right"
             compact: If True, use HHMM format; if False, use HH:MM
         """
-        fade_strength = 0.9  # Subtle display for corner
+        fade_strength = 0.6
         
         self.draw_time_display(position, format_type, fade_strength)
 
