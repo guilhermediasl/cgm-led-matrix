@@ -172,8 +172,12 @@ class PixelMatrix:
                 if y % 2 == 0:
                     temp_color = self.fade_color(color, 0.3)
             if enable_five:
-                if not self.is_five_apart(start_y, y):
-                    temp_color = self.fade_color(color, 1.2)
+                if self.is_five_apart(start_y, y):
+                    fade_amount = 1.2
+                else:
+                    fade_amount = 0.8
+                    
+                temp_color = self.fade_color(color, fade_amount)
 
             self.set_pixel(x, y, *temp_color)
 
