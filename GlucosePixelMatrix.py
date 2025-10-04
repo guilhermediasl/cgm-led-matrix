@@ -50,7 +50,7 @@ class GlucoseMatrixDisplay:
         self.min_glucose = min_glucose
         self.max_glucose = max_glucose
         self.PIXEL_INTERVAL = 5
-        self.RUN_COMMAND_MAX_COUNT = 800
+        self.RUN_COMMAND_MAX_COUNT = 600
         self.max_time = self.PIXEL_INTERVAL * 60 * 1000 * self.matrix_size #milliseconds
         self.config = self.load_config(config_path)
         self.arrow = ''
