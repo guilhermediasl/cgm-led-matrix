@@ -821,20 +821,27 @@ class PixelMatrix:
         """
         now = datetime.now()
         
-        # Format time string based on type
-        if format_type == "compact":
-            time_str = now.strftime("%H%M")
-        elif format_type == "HH:MM:SS":
-            time_str = now.strftime("%H:%M:%S")
-        elif format_type == "MM:SS":
+        # Normalize common format tokens
+        fmt = (format_type or "HH:MM").lower()
+
+        if fmt in ("12h", "hh:mm a", "hh:mmam", "hh:mm pm"):
+            hour = now.strftime("%I")
+            minute = now.strftime("%M")
+            time_str = f"{hour}:{minute}"
+        elif fmt in ("24h", "hh:mm", "hh:mm:ss", "hhmm") or fmt == "hh:mm:ss":
+            if fmt == "hh:mm:ss" or format_type == "HH:MM:SS":
+                time_str = now.strftime("%H:%M:%S")
+            elif fmt == "hhmm" or format_type == "compact":
+                time_str = now.strftime("%H%M")
+            else:
+                time_str = now.strftime("%H:%M")
+        elif format_type == "MM:SS" or fmt == "mm:ss":
             time_str = now.strftime("%M:%S")
-        else:  # Default to "HH:MM"
+        else:
             time_str = now.strftime("%H:%M")
         
-        # Calculate text width
         text_width = self._get_time_text_width(time_str)
         
-        # Define clear positions that avoid the glucose display area
         if position == "top-left":
             x = 0
             y = 3 + self.glucose_to_y_coordinate(self.GLUCOSE_HIGH)
@@ -848,18 +855,17 @@ class PixelMatrix:
             x = self.matrix_size - text_width - 1
             y = self.matrix_size - 7
         elif position == "bottom":
-            x = 2  # Slightly from left to avoid conflicts
+            x = 2 
             y = self.matrix_size - 7
         else:  # default to top-left
             x = 1
             y = 1
         
-        # Ensure coordinates are within bounds
         x = max(0, min(x, self.matrix_size - text_width))
         y = max(0, min(y, self.matrix_size - 6))
         
         color = self.fade_color(Color.white.rgb, fade_strength)
-        self.draw_box(x - 1, y , x + text_width - 3, y + 4, self.fade_color(Color.white.rgb, .1))
+        self.draw_box(x - 1, y , x + text_width - 3, y + 4, Color.black.rgb)
         self._draw_time_text(time_str, x, y, color)
 
     def _draw_time_text(self, text, start_x, start_y, color):
