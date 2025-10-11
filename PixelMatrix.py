@@ -396,7 +396,7 @@ class PixelMatrix:
         """
         return len(get_digit_patterns()[digit][0])
 
-    def display_entries(self):
+    def draw_entries(self):
         """Display glucose readings as a timeline graph.
         
         Args:

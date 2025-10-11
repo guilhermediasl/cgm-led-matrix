@@ -385,14 +385,14 @@ class GlucoseMatrixDisplay:
         pixelMatrix.draw_bolus(bolus_with_x_values)
         pixelMatrix.draw_exercise(exercise_indexes)
         
-        # Add time display if enabled
+        pixelMatrix.draw_entries()
+        
         if self.show_time:
             pixelMatrix.draw_corner_time(
                 position=self.time_position,
                 format_type=self.time_format
             )
         
-        pixelMatrix.display_entries()
         pixelMatrix.display_glucose_on_matrix(self.first_glucose_entry.glucose)
 
         return pixelMatrix
