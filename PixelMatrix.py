@@ -664,22 +664,23 @@ class PixelMatrix:
         if not hasattr(self, "formmated_entries") or len(self.formmated_entries) < 2:
             return
                 
-        glucose_values = self.average_entries_by_time(self.formmated_entries)
+        averaged_by_time = self.average_entries_by_time(self.formmated_entries)
 
-        previous_y = None
-        for minutes_index, glucose_values in enumerate(glucose_values):
-            if not glucose_values:
+        prev_x = None
+        prev_y = None
+        prev_g = None
+        for minutes_index, g in enumerate(averaged_by_time):
+            if g is None:
                 continue
 
-            median_glucose = int(np.mean(glucose_values))
             x = self._time_index_to_x(minutes_index)
-            y = self.glucose_to_y_coordinate(median_glucose)
+            y = self.glucose_to_y_coordinate(int(g))
 
-            if previous_y is not None:
-                # Draw faded interval between previous and current point
-                self._plot_faded_interval(x_prev, previous_y, x, y, median_glucose, fade_strength)
+            if prev_y is not None and prev_x is not None and prev_g is not None:
+                # Draw faded interval between previous and current point using glucose interpolation for color
+                self._plot_faded_interval(prev_x, prev_y, x, y, int(prev_g), int(g), fade_strength)
 
-            x_prev, previous_y = x, y
+            prev_x, prev_y, prev_g = x, y, g
 
     def draw_box(self, x1: int, y1: int, x2: int, y2: int, color: ColorType) -> None:
         """Draw a rectangular box on the matrix, with infill.
@@ -694,17 +695,22 @@ class PixelMatrix:
                 self.set_pixel(x, y, *color)
         
 
-    def _plot_faded_interval(self, x1: int, y1: int, x2: int, y2: int, glucose: int, fade_strength: float) -> None:
-        """Draw a faded line interval between two glucose values."""
-        self._draw_line(x1, y1, x2, y2, fade_strength)
+    def _plot_faded_interval(self, x1: int, y1: int, x2: int, y2: int, g1: int, g2: int, fade_strength: float) -> None:
+        """Draw a faded line interval between two glucose values.
+
+        Colors are determined by interpolating glucose between g1 and g2
+        along the line progression instead of inferring glucose from the
+        Y coordinate, preserving value fidelity.
+        """
+        self._draw_line(x1, y1, x2, y2, g1, g2, fade_strength)
     
-    def _draw_line(self, x1: int, y1: int, x2: int, y2: int, fade_strength: float):
+    def _draw_line(self, x1: int, y1: int, x2: int, y2: int, g1: int, g2: int, fade_strength: float):
         """Draw a line between two points using Bresenham's algorithm.
         
         Args:
             x1, y1: Start coordinates
             x2, y2: End coordinates
-            color: RGB color of the line
+            g1, g2: Glucose values at the start and end points (for color)
         """
         dx = abs(x2 - x1)
         dy = -abs(y2 - y1)
@@ -712,8 +718,16 @@ class PixelMatrix:
         sy = 1 if y1 < y2 else -1
         err = dx + dy
 
+        total_steps = max(abs(x2 - x1), abs(y2 - y1)) + 1
+        step_index = 0
+
         while True:
-            color = self.determine_color(self.y_coordinate_to_glucose(y1))
+            if total_steps > 1:
+                t = step_index / (total_steps - 1)
+            else:
+                t = 0.0
+            g = g1 + (g2 - g1) * t
+            color = self.determine_color(g)
             faded_color = self.fade_color(color, fade_strength)
             self.set_pixel(x1, y1, *faded_color)
             if x1 == x2 and y1 == y2:
@@ -729,6 +743,7 @@ class PixelMatrix:
                     break
                 err += dx
                 y1 += sy
+            step_index += 1
 
     def fade_color(self, color: ColorType, percentil: float) -> ColorType:
         """Apply brightness and color correction to a color.
