@@ -5,6 +5,14 @@ import subprocess
 import sys
 from threading import Thread
 
+try:
+    from configurator.config_loader import load_config, ensure_config_exists
+    from configurator.config_model import ConfigModel
+except Exception:
+    load_config = None
+    ensure_config_exists = None
+    ConfigModel = None
+
 # Flask app setup
 app = Flask(__name__)
 
@@ -21,7 +29,7 @@ CONFIG_SCHEMA_PATH = os.path.join(BASE_DIR, "config.schema.json")
 EXAMPLE_CONFIG_PATH = os.path.join(BASE_DIR, "config.example.json")
 
 # If the config file doesn't exist, create it from the example so first-run works
-if not os.path.exists(CONFIG_PATH) and os.path.exists(EXAMPLE_CONFIG_PATH):
+if not os.path.exists(CONFIG_PATH):
     try:
         with open(EXAMPLE_CONFIG_PATH, 'r', encoding='utf-8') as src, open(CONFIG_PATH, 'w', encoding='utf-8') as dst:
             dst.write(src.read())
@@ -94,7 +102,14 @@ def get_schema():
 @app.route("/config", methods=["GET"])
 def get_config():
     try:
-        # If actual config missing but example exists, return example so UI can render defaults
+        if load_config is not None:
+            try:
+                cfg = load_config()
+                return jsonify({"config": json.loads(cfg.json(by_alias=True))})
+            except Exception as e:
+                app.logger.error(f"Typed config load failed: {e}")
+
+        # Fallback to file reads
         if not os.path.exists(CONFIG_PATH) and os.path.exists(EXAMPLE_CONFIG_PATH):
             with open(EXAMPLE_CONFIG_PATH, "r", encoding="utf-8") as file:
                 config_data = json.load(file)
@@ -140,7 +155,25 @@ def save_config():
             else:
                 # non-string values are left as-is
                 config_data[key] = value
-        # Server-side validation using the schema if present
+        if ConfigModel is not None:
+            try:
+                from pydantic import ValidationError
+            except Exception:
+                ValidationError = None
+
+            try:
+                validated = ConfigModel.parse_obj(config_data)
+                # write canonical JSON using schema aliases
+                with open(CONFIG_PATH, "w", encoding="utf-8") as config_file:
+                    config_file.write(validated.json(by_alias=True, indent=4))
+                return jsonify({"message": "Config saved successfully!"})
+            except Exception as e:
+                if ValidationError is not None and isinstance(e, ValidationError):
+                    errs = e.errors()
+                    return jsonify({"errors": errs}), 400
+                return jsonify({"error": str(e)}), 400
+
+        # Fallback to existing jsonschema validation if present
         if os.path.exists(CONFIG_SCHEMA_PATH):
             try:
                 from jsonschema import Draft7Validator
