@@ -378,13 +378,13 @@ class GlucoseMatrixDisplay:
         
         pixelMatrix.draw_hour_indicators()
         pixelMatrix.draw_glucose_boundaries()
-        if self.PLOT_GLUCOSE_INTERVALS: pixelMatrix.draw_glucose_intervals()
         
         pixelMatrix.draw_iob(interpolated_iob_items)
         pixelMatrix.draw_carbs(carbs_with_x_values)
         pixelMatrix.draw_bolus(bolus_with_x_values)
         pixelMatrix.draw_exercise(exercise_indexes)
         
+        if self.PLOT_GLUCOSE_INTERVALS: pixelMatrix.draw_glucose_intervals()
         pixelMatrix.draw_entries()
         
         if self.show_time:
