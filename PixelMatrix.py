@@ -655,7 +655,7 @@ class PixelMatrix:
     #     return ColorType(*corrected_color)
     
     
-    def draw_glucose_intervals(self, fade_strength: float = 0.1) -> None:
+    def draw_glucose_intervals(self, fade_strength: float = 0.2) -> None:
         """Draw faded intervals between glucose entries to visualize trends.
 
         Args:
@@ -678,7 +678,7 @@ class PixelMatrix:
 
             if prev_y is not None and prev_x is not None and prev_g is not None:
                 # Draw faded interval between previous and current point using glucose interpolation for color
-                self._plot_faded_interval(prev_x, prev_y, x, y, int(prev_g), int(g), fade_strength)
+                self._draw_line(prev_x, prev_y, x, y, int(prev_g), int(g), fade_strength)
 
             prev_x, prev_y, prev_g = x, y, g
 
@@ -693,16 +693,6 @@ class PixelMatrix:
         for x in range(x1, x2 + 1):
             for y in range(y1, y2 + 1):
                 self.set_pixel(x, y, *color)
-        
-
-    def _plot_faded_interval(self, x1: int, y1: int, x2: int, y2: int, g1: int, g2: int, fade_strength: float) -> None:
-        """Draw a faded line interval between two glucose values.
-
-        Colors are determined by interpolating glucose between g1 and g2
-        along the line progression instead of inferring glucose from the
-        Y coordinate, preserving value fidelity.
-        """
-        self._draw_line(x1, y1, x2, y2, g1, g2, fade_strength)
     
     def _draw_line(self, x1: int, y1: int, x2: int, y2: int, g1: int, g2: int, fade_strength: float):
         """Draw a line between two points using Bresenham's algorithm.
