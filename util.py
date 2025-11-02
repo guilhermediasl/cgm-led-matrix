@@ -8,6 +8,7 @@ class TreatmentEnum(Enum):
     BOLUS = 'Bolus'
     CARBS = 'Carbs'
     EXERCISE = 'Exercise'
+    BASAL = 'Basal Injection'
 
 class EntrieEnum(str, Enum):
     """Enumeration for different types of glucose entries."""

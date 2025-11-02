@@ -41,6 +41,14 @@ class PixelMatrix:
         """
         self.formmated_entries = formmated_entries
 
+    def set_frommated_basal(self, formmated_basal: List[TreatmentItem]):
+        """Set the basal insulin data for display.
+        
+        Args:
+            formmated_basal: List[TreatmentItem] of basal insulin entries
+        """
+        self.formmated_basal = formmated_basal
+
     def set_formmated_treatments(self, formmated_treatments: List[TreatmentItem | ExerciseItem]):
         """Set the treatment data for display.
         
@@ -149,6 +157,42 @@ class PixelMatrix:
                 if pattern[i, j]:
                     self.set_pixel(x + j, y + i, *color)
 
+    def draw_line_between_points(self, x1: int, y1: int, x2: int, y2: int, color_start: ColorType, color_end: ColorType):
+        """Draw a line between two points using Bresenham's algorithm with color interpolation.
+        
+        Args:
+            x1, y1: Start coordinates
+            x2, y2: End coordinates
+            color_start: RGB color at the start point
+            color_end: RGB color at the end point
+        """
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        sx = 1 if x1 < x2 else -1
+        sy = 1 if y1 < y2 else -1
+        err = dx - dy
+
+        length = max(dx, dy)
+        step = 0
+
+        while True:
+            t = step / length if length != 0 else 0
+            r = int(color_start[0] + (color_end[0] - color_start[0]) * t)
+            g = int(color_start[1] + (color_end[1] - color_start[1]) * t)
+            b = int(color_start[2] + (color_end[2] - color_start[2]) * t)
+            self.set_pixel(x1, y1, r, g, b)
+
+            if x1 == x2 and y1 == y2:
+                break
+            err2 = err * 2
+            if err2 > -dy:
+                err -= dy
+                x1 += sx
+            if err2 < dx:
+                err += dx
+                y1 += sy
+            step += 1
+
     def draw_vertical_line(self, x: int, color: ColorType, glucose: int, height: int, enable_five=False, blink=False):
         """Draw a vertical line representing data values.
         
@@ -210,6 +254,16 @@ class PixelMatrix:
         """Draw horizontal lines indicating target glucose range."""
         for glucose in (self.GLUCOSE_LOW, self.GLUCOSE_HIGH):
             self.draw_horizontal_line(glucose, self.fade_color(Color.white.rgb, 0.1), 0, self.matrix_size)
+
+    def draw_basal_meter(self) -> None:
+        """Draw basal insulin meter, on the right top coner, drawning from the top
+        to the botton using the lengh the sum of all the amout of the treatments."""
+        total_basal = sum(treatment.amount for treatment in self.formmated_basal)
+        max_basal_display = 5
+        pixel_representation_per_unit = 10
+        basal_height = min(math.ceil(total_basal / pixel_representation_per_unit), max_basal_display)
+
+        self.draw_line_between_points(0, 0, 0, basal_height, Color.cyan.rgb, Color.cyan.rgb)
 
     def draw_iob(self, iob_list: List[IobItem]) -> None:
         """Draw insulin-on-board (IOB) visualization.

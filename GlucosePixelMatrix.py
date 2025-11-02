@@ -58,6 +58,7 @@ class GlucoseMatrixDisplay:
         self.second_glucose_entry = GlucoseItem(EntrieEnum.SGV, 0, datetime.datetime.now())
         self.formatted_entries: List[GlucoseItem] = []
         self.formatted_treatments: List[TreatmentItem | ExerciseItem] = []
+        self.formatted_basal: List[TreatmentItem] = []
         self.iob_list: List[IobItem] = []
         self.newer_id = None
         self.command = ''
@@ -283,6 +284,7 @@ class GlucoseMatrixDisplay:
         """Clear the formatted data arrays for next update cycle."""
         self.formatted_entries = []
         self.formatted_treatments = []
+        self.formatted_basal = []
 
     def fetch_json_data(self, url, retries=5, delay=10, fallback_delay=300):
         """Fetch JSON data from Nightscout server with retry logic.
@@ -371,13 +373,16 @@ class GlucoseMatrixDisplay:
         pixelMatrix = PixelMatrix(self.matrix_size, self.min_glucose, self.max_glucose, self.GLUCOSE_LOW, self.GLUCOSE_HIGH, self.night_brightness, self.PIXEL_INTERVAL)
         pixelMatrix.set_formmated_entries(self.formatted_entries)
         pixelMatrix.average_entries_by_time(self.formatted_entries)
-        pixelMatrix.set_formmated_treatments(self.formatted_treatments)
+        pixelMatrix.set_formmated_treatments(self.formatted_treatments) 
+        pixelMatrix.set_frommated_basal(self.formatted_basal)
+        
         pixelMatrix.set_arrow(self.arrow)
         pixelMatrix.set_glucose_difference()
 
         
         pixelMatrix.draw_hour_indicators()
         pixelMatrix.draw_glucose_boundaries()
+        pixelMatrix.draw_basal_meter()
         
         pixelMatrix.draw_iob(interpolated_iob_items)
         pixelMatrix.draw_carbs(carbs_with_x_values)
@@ -499,6 +504,13 @@ class GlucoseMatrixDisplay:
                 self.formatted_treatments.append(ExerciseItem(TreatmentEnum.EXERCISE,
                                                               time,
                                                               int(item.get("duration"))))
+            elif item.get("eventType") == TreatmentEnum.BASAL.value:
+                if not item.get("notes"):
+                    continue
+                self.formatted_basal.append(TreatmentItem(item.get("_id"),
+                                                                TreatmentEnum.BASAL,
+                                                                time,
+                                                                item.get("notes")))
     
     def calc_glucose_difference(self) -> int:
         """
