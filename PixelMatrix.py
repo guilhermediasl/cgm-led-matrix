@@ -263,6 +263,7 @@ class PixelMatrix:
         pixel_representation_per_unit = 10
         basal_height = min(math.ceil(total_basal / pixel_representation_per_unit), max_basal_display)
 
+        self.draw_line_between_points(0, 0, 0, 5, self.fade_color(Color.white.rgb, 0.1), self.fade_color(Color.white.rgb, 0.1))
         self.draw_line_between_points(0, 0, 0, basal_height, Color.cyan.rgb, Color.cyan.rgb)
 
     def draw_iob(self, iob_list: List[IobItem]) -> None:
