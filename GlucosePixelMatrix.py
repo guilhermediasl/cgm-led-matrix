@@ -505,7 +505,7 @@ class GlucoseMatrixDisplay:
                                                               time,
                                                               int(item.get("duration"))))
             elif item.get("eventType") == TreatmentEnum.BASAL.value:
-                if not item.get("notes"):
+                if not item.get("notes") or time.date() != datetime.datetime.now().date():
                     continue
                 self.formatted_basal.append(TreatmentItem(item.get("_id"),
                                                                 TreatmentEnum.BASAL,
