@@ -339,6 +339,14 @@ class GlucoseMatrixDisplay:
                                                                     TreatmentEnum.TEMP_BASAL,
                                                                     time,
                                                                     item.get("rate")))
+            elif item.get("eventType") == TreatmentEnum.BASAL_INJECTION.value:
+                # Basal Injection events store the value in the 'notes' field
+                if item.get("notes") is None:
+                    continue
+                self.formmated_treatments.append(TreatmentItem(item.get("_id"),
+                                                                    TreatmentEnum.BASAL_INJECTION,
+                                                                    time,
+                                                                    item.get("notes")))
 
     def set_glucose_difference(self):
         self.glucose_difference = int(self.first_value) - int(self.second_value)
@@ -435,6 +443,9 @@ class GlucoseMatrixDisplay:
                 carbs_values.append((matrix_x, treatment.amount, treatment.type))
             
             elif treatment.type == TreatmentEnum.TEMP_BASAL:
+                basal_values.append((matrix_x, treatment.amount, treatment.type))
+            
+            elif treatment.type == TreatmentEnum.BASAL_INJECTION:
                 basal_values.append((matrix_x, treatment.amount, treatment.type))
         
         return bolus_values, carbs_values, exercise_values, basal_values
