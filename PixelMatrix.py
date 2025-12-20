@@ -127,6 +127,14 @@ class PixelMatrix:
                                     treatment[1],
                                     True)
 
+    def draw_basal(self, basal_with_x_values: List) -> None:
+        for treatment in basal_with_x_values:
+            self.draw_vertical_line(treatment[0],
+                                    self.fade_color(Color.cyan.rgb, 0.3),
+                                    self.GLUCOSE_HIGH,
+                                    treatment[1],
+                                    True)
+
     def draw_exercise(self, exercise_indexes: set[int]) -> None:
         for exercise_index in exercise_indexes:
             self.set_pixel(exercise_index, self.glucose_to_y_coordinate(self.GLUCOSE_HIGH) + 1, *self.fade_color(Color.purple.rgb, 0.5))
