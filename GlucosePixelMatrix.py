@@ -241,7 +241,7 @@ class GlucoseMatrixDisplay:
         return current_time.hour < 6 or current_time.hour > 21
 
     def build_pixel_matrix(self):
-        bolus_with_x_values,carbs_with_x_values,exercises_with_x_values = self.get_treatments_x_values()
+        bolus_with_x_values,carbs_with_x_values,exercises_with_x_values,basal_with_x_values = self.get_treatments_x_values()
 
         exercise_indexes = self.get_exercises_index()
 
@@ -258,6 +258,7 @@ class GlucoseMatrixDisplay:
         pixelMatrix.draw_iob(self.iob_list)
         pixelMatrix.draw_carbs(carbs_with_x_values)
         pixelMatrix.draw_bolus(bolus_with_x_values)
+        pixelMatrix.draw_basal(basal_with_x_values)
         pixelMatrix.draw_exercise(exercise_indexes)
         pixelMatrix.display_entries(self.formmated_entries)
 
@@ -331,6 +332,14 @@ class GlucoseMatrixDisplay:
                 self.formmated_treatments.append(ExerciseItem(TreatmentEnum.EXERCISE,
                                                                     time,
                                                                     int(item.get("duration"))))
+            elif item.get("eventType") == TreatmentEnum.BASAL_INJECTION.value:
+                # Basal Injection events store the value in the 'notes' field
+                if item.get("notes") is None:
+                    continue
+                self.formmated_treatments.append(TreatmentItem(item.get("_id"),
+                                                                    TreatmentEnum.BASAL_INJECTION,
+                                                                    time,
+                                                                    item.get("notes")))
 
     def set_glucose_difference(self):
         self.glucose_difference = int(self.first_value) - int(self.second_value)
@@ -377,7 +386,7 @@ class GlucoseMatrixDisplay:
     def get_treatments_x_values(self):
         if not self.formmated_entries:
             logging.warning("No glucose entries available.")
-            return [], [], []
+            return [], [], [], []
 
         newer_entry_time = self.formmated_entries[0].date
         older_entry_time = self.formmated_entries[-1].date
@@ -389,6 +398,7 @@ class GlucoseMatrixDisplay:
         bolus_values = []
         carbs_values = []
         exercise_values = []
+        basal_values = []
 
         for treatment in self.formmated_treatments:
             # Skip treatments outside the time window
@@ -424,8 +434,11 @@ class GlucoseMatrixDisplay:
                 
             elif treatment.type == TreatmentEnum.CARBS:
                 carbs_values.append((matrix_x, treatment.amount, treatment.type))
+            
+            elif treatment.type == TreatmentEnum.BASAL_INJECTION:
+                basal_values.append((matrix_x, treatment.amount, treatment.type))
         
-        return bolus_values, carbs_values, exercise_values
+        return bolus_values, carbs_values, exercise_values, basal_values
 
     def _find_closest_date(self, target_date, date_list):
         """

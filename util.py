@@ -7,6 +7,7 @@ class TreatmentEnum(Enum):
     BOLUS = 'Bolus'
     CARBS = 'Carbs'
     EXERCISE = 'Exercise'
+    BASAL_INJECTION = 'Basal Injection'
 
 class EntrieEnum(str, Enum):
     SGV = 'sgv'
