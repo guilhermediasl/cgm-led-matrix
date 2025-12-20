@@ -116,7 +116,7 @@ class PixelMatrix:
             self.draw_vertical_line(treatment[0],
                                     self.fade_color(Color.orange.rgb, 0.2),
                                     self.GLUCOSE_HIGH,
-                                    treatment[1],
+                                    int(treatment[1]),
                                     True)
 
     def draw_bolus(self, bolus_with_x_values: List) -> None:
@@ -124,15 +124,18 @@ class PixelMatrix:
             self.draw_vertical_line(treatment[0],
                                     self.fade_color(Color.blue.rgb, 0.3),
                                     self.GLUCOSE_HIGH,
-                                    treatment[1],
+                                    int(treatment[1]),
                                     True)
 
     def draw_basal(self, basal_with_x_values: List) -> None:
         for treatment in basal_with_x_values:
+            # Convert basal rate to integer height (basal rates are typically small floats)
+            # Ensure at least 1 pixel height for visibility
+            height = max(1, int(treatment[1]))
             self.draw_vertical_line(treatment[0],
                                     self.fade_color(Color.cyan.rgb, 0.3),
                                     self.GLUCOSE_HIGH,
-                                    treatment[1],
+                                    height,
                                     True)
 
     def draw_exercise(self, exercise_indexes: set[int]) -> None:
