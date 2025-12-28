@@ -262,7 +262,9 @@ class PixelMatrix:
     def draw_basal_meter(self) -> None:
         """Draw basal insulin meter, on the right top coner, drawning from the top
         to the botton using the lengh the sum of all the amout of the treatments."""
-        total_basal = sum(treatment.amount for treatment in self.formmated_basal)
+        today = datetime.now().date()
+        total_basal = sum(treatment.amount for treatment in self.formmated_basal
+                          if treatment.date.date() == today)
         max_basal_display = 5
         pixel_representation_per_unit = 10
         basal_height = min(math.ceil(total_basal / pixel_representation_per_unit), max_basal_display)
