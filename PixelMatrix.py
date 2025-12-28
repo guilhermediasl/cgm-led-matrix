@@ -265,12 +265,29 @@ class PixelMatrix:
         today = datetime.now().date()
         total_basal = sum(treatment.amount for treatment in self.formmated_basal
                           if treatment.date.date() == today)
-        max_basal_display = 5
+        
         pixel_representation_per_unit = 10
-        basal_height = min(math.ceil(total_basal / pixel_representation_per_unit), max_basal_display)
-
-        self.draw_line_between_points(0, 0, 0, 4, self.fade_color(Color.white.rgb, 0.1), self.fade_color(Color.white.rgb, 0.1))
-        self.draw_line_between_points(0, 0, 0, basal_height, Color.cyan.rgb, Color.cyan.rgb)
+        max_basal_display = 5
+        
+        # Calculate integer and fractional parts
+        basal_in_pixels = total_basal / pixel_representation_per_unit
+        integer_pixels = int(basal_in_pixels)
+        fractional_part = basal_in_pixels - integer_pixels
+        
+        integer_pixels = min(integer_pixels, max_basal_display)
+        
+        # Draw background line
+        background_color = self.fade_color(Color.white.rgb, 0.1)
+        self.draw_line_between_points(0, 0, 0, 4, background_color, self.fade_color(Color.white.rgb, 0.1))
+        
+        # Draw full integer pixels
+        if integer_pixels > 0:
+            self.draw_line_between_points(0, 0, 0, integer_pixels, Color.cyan.rgb, Color.cyan.rgb)
+        
+        # Draw fractional pixel interpolated between background and cyan
+        if fractional_part > 0 and integer_pixels < max_basal_display:
+            interpolated_color = self.interpolate_color(background_color, Color.cyan.rgb, fractional_part, 0, 1)
+            self.set_pixel(0, integer_pixels, *interpolated_color)
 
     def draw_iob(self, iob_list: List[IobItem]) -> None:
         """Draw insulin-on-board (IOB) visualization.
