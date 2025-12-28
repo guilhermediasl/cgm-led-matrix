@@ -323,6 +323,19 @@ class PixelMatrix:
                                     self.GLUCOSE_HIGH,
                                     treatment[1],
                                     True)
+            
+    def draw_basal(self, basal_with_x_values: List) -> None:
+        """Draw basal insulin markers.
+        
+        Args:
+            basal_with_x_values: List of tuples (x_position, insulin_amount, type)
+        """
+        for treatment in basal_with_x_values:
+            self.draw_vertical_line(treatment[0],
+                                    self.fade_color(Color.cyan.rgb, 0.3),
+                                    self.GLUCOSE_HIGH,
+                                    treatment[1],
+                                    True)
 
     def draw_exercise(self, exercise_indexes: set[int]) -> None:
         """Draw exercise period indicators.

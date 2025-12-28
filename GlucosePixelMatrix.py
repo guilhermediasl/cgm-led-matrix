@@ -365,7 +365,7 @@ class GlucoseMatrixDisplay:
         Returns:
             PixelMatrix: Configured matrix ready for display
         """
-        bolus_with_x_values, carbs_with_x_values = self.get_treatments_x_values()
+        bolus_with_x_values, carbs_with_x_values, basal_with_x_values = self.get_treatments_x_values()
 
         exercise_indexes = self.get_exercises_index()
         interpolated_iob_items = self.get_interpolated_iob_series()
@@ -387,6 +387,7 @@ class GlucoseMatrixDisplay:
         pixelMatrix.draw_iob(interpolated_iob_items)
         pixelMatrix.draw_carbs(carbs_with_x_values)
         pixelMatrix.draw_bolus(bolus_with_x_values)
+        pixelMatrix.draw_basal(basal_with_x_values)
         pixelMatrix.draw_exercise(exercise_indexes)
         
         if self.PLOT_GLUCOSE_INTERVALS: pixelMatrix.draw_glucose_intervals()
@@ -615,7 +616,7 @@ class GlucoseMatrixDisplay:
         """
         if not self.formatted_entries:
             logging.warning("No glucose entries available.")
-            return [], []
+            return [], [], []
 
         newer_entry_time = self.formatted_entries[0].date
         older_entry_time = self.formatted_entries[-1].date
@@ -624,6 +625,7 @@ class GlucoseMatrixDisplay:
 
         bolus_values = []
         carbs_values = []
+        basal_values = []
 
         for treatment in self.formatted_treatments:
             # Skip treatments outside the time window
@@ -648,8 +650,11 @@ class GlucoseMatrixDisplay:
                 
             elif treatment.type == TreatmentEnum.CARBS:
                 carbs_values.append((x_value, treatment.amount, treatment.type))
+                
+            elif treatment.type == TreatmentEnum.BASAL:
+                basal_values.append((x_value, treatment.amount, treatment.type))
         
-        return bolus_values, carbs_values
+        return bolus_values, carbs_values, basal_values
 
     def _find_closest_date(self, target_date, date_list):
         """Find the closest date in a sorted list using binary search.
