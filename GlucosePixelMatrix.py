@@ -648,9 +648,15 @@ class GlucoseMatrixDisplay:
                 
             elif treatment.type == TreatmentEnum.CARBS:
                 carbs_values.append((x_value, treatment.amount, treatment.type))
-                
-            elif treatment.type == TreatmentEnum.BASAL:
-                basal_values.append((x_value, treatment.amount, treatment.type))
+        
+        for basal in self.formatted_basal:
+            if basal.date < older_entry_time or basal.date > newer_entry_time:
+                continue
+            closest_date = self._find_closest_date(basal.date, self.pixels_time)
+            if closest_date is None:
+                continue
+            x_value = entry_dates[closest_date]
+            basal_values.append((x_value, basal.amount, basal.type))
         
         return bolus_values, carbs_values, basal_values
 
