@@ -332,7 +332,7 @@ class PixelMatrix:
         """
         for treatment in basal_with_x_values:
             self.draw_vertical_line(treatment[0],
-                                    self.fade_color(Color.cyan.rgb, 0.3),
+                                    Color.cyan.rgb,
                                     self.GLUCOSE_HIGH,
                                     treatment[1],
                                     True)
