@@ -495,7 +495,7 @@ class GlucoseMatrixDisplay:
             self.iob_list.insert(0,0)
         else:
             self.iob_list.insert(0,iob_value)
-        return self.iob_list[:self.matrix_size]
+        return self.iob_list[:self.matrix_size - 1]
 
 
 if __name__ == "__main__":
