@@ -298,13 +298,19 @@ class GlucoseMatrixDisplay:
             treatment_date = datetime.datetime.strptime(item.get("dateString"), "%Y-%m-%dT%H:%M:%S.%fZ")
             treatment_date += datetime.timedelta(minutes= -180)
             if item.get("type") == EntrieEnum.SGV:
+                glucose_value = item.get(EntrieEnum.SGV)
+                if glucose_value is None:
+                    continue
                 self.formmated_entries.append(GlucoseItem(EntrieEnum.SGV,
-                                                  item.get(EntrieEnum.SGV),
+                                                  glucose_value,
                                                   treatment_date,
                                                   item.get("direction")))
             elif item.get("type") == EntrieEnum.MBG:
+                glucose_value = item.get(EntrieEnum.MBG)
+                if glucose_value is None:
+                    continue
                 self.formmated_entries.append(GlucoseItem(EntrieEnum.MBG,
-                                                  item.get(EntrieEnum.MBG),
+                                                  glucose_value,
                                                   treatment_date))
 
             if len(self.formmated_entries) == self.matrix_size + entries_margin:
