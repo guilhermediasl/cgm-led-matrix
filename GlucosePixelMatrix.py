@@ -62,8 +62,18 @@ class GlucoseMatrixDisplay:
         self.url_treatments = f"{self.config.get('url')}/treatments.json?token={token}&count=10"
         self.url_ping_entries = f"{self.config.get('url')}/entries.json?token={token}&count=1"
         self.url_iob = f"{self.config.get('url')}/properties/iob?token={token}"
-        self.GLUCOSE_LOW = self.config.get('low bondary glucose')
-        self.GLUCOSE_HIGHT = self.config.get('high bondary glucose')
+        configured_low = self.config.get('low bondary glucose', self.config.get('low boundary glucose', self.min_glucose))
+        configured_high = self.config.get('high bondary glucose', self.config.get('high boundary glucose', self.max_glucose))
+        try:
+            self.GLUCOSE_LOW = int(configured_low) if configured_low is not None else self.min_glucose
+        except (TypeError, ValueError):
+            logging.warning("Invalid low glucose boundary in config. Falling back to default.")
+            self.GLUCOSE_LOW = self.min_glucose
+        try:
+            self.GLUCOSE_HIGHT = int(configured_high) if configured_high is not None else self.max_glucose
+        except (TypeError, ValueError):
+            logging.warning("Invalid high glucose boundary in config. Falling back to default.")
+            self.GLUCOSE_HIGHT = self.max_glucose
         self.os = self.config.get('os', 'linux').lower()
         self.image_out = self.config.get('image out', 'led matrix')
         self.output_type = self.config.get("output type")
@@ -297,16 +307,19 @@ class GlucoseMatrixDisplay:
         for item in self.json_entries_data:
             treatment_date = datetime.datetime.strptime(item.get("dateString"), "%Y-%m-%dT%H:%M:%S.%fZ")
             treatment_date += datetime.timedelta(minutes= -180)
-            if item.get("type") == EntrieEnum.SGV:
-                glucose_value = item.get(EntrieEnum.SGV)
+            entry_type = item.get("type")
+            sgv_value = item.get(EntrieEnum.SGV)
+            mbg_value = item.get(EntrieEnum.MBG)
+            if entry_type == EntrieEnum.SGV or (entry_type is None and sgv_value is not None):
+                glucose_value = sgv_value
                 if glucose_value is None:
                     continue
                 self.formmated_entries.append(GlucoseItem(EntrieEnum.SGV,
                                                   glucose_value,
                                                   treatment_date,
                                                   item.get("direction")))
-            elif item.get("type") == EntrieEnum.MBG:
-                glucose_value = item.get(EntrieEnum.MBG)
+            elif entry_type == EntrieEnum.MBG or (entry_type is None and mbg_value is not None):
+                glucose_value = mbg_value
                 if glucose_value is None:
                     continue
                 self.formmated_entries.append(GlucoseItem(EntrieEnum.MBG,
