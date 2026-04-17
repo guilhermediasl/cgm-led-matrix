@@ -62,8 +62,8 @@ class GlucoseMatrixDisplay:
         self.url_treatments = f"{self.config.get('url')}/treatments.json?token={token}&count=10"
         self.url_ping_entries = f"{self.config.get('url')}/entries.json?token={token}&count=1"
         self.url_iob = f"{self.config.get('url')}/properties/iob?token={token}"
-        configured_low = self.config.get('low bondary glucose', self.config.get('low boundary glucose', self.min_glucose))
-        configured_high = self.config.get('high bondary glucose', self.config.get('high boundary glucose', self.max_glucose))
+        configured_low = self.config.get('low boundary glucose', self.config.get('low bondary glucose', self.min_glucose))
+        configured_high = self.config.get('high boundary glucose', self.config.get('high bondary glucose', self.max_glucose))
         try:
             self.GLUCOSE_LOW = int(configured_low) if configured_low is not None else self.min_glucose
         except (TypeError, ValueError):
