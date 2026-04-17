@@ -172,13 +172,16 @@ class GlucoseMatrixDisplay:
         self.run_command()
 
     def run_set_brightness_command(self):
-        brightness = self.night_brightness if self.get_nightmode() else 100
+        is_night = self.get_nightmode()
+        brightness = self.night_brightness if is_night else 100
         if self.os == 'windows':
             command = f"idotmatrix/run_in_venv.bat --address {self.ip} --set-brightness {brightness}"
         else:
             command = f"./idotmatrix/run_in_venv.sh --address {self.ip} --set-brightness {brightness}"
         self.set_command(command)
-        self.run_command()
+        repeat = 5 if is_night else 1
+        for _ in range(repeat):
+            self.run_command()
 
     def reset_formmated_jsons(self):
         self.formmated_entries = []
