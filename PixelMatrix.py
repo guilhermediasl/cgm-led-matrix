@@ -509,6 +509,13 @@ class PixelMatrix:
                 first_valid_point = False
                 if pixel_interval_index != 0:
                     self._draw_trail(x, y)
+
+    def draw_stale_indicator(self) -> None:
+        """Draw a red warning mark indicating that glucose data is stale."""
+        color = Color.red.rgb
+        for y in range(0, 4):
+            self.set_pixel(0, y, *color)
+        self.set_pixel(0, 4, *self.fade_color(color, 0.5))
                 
     def average_entries_by_time(self, entries) -> List[int]:
         """Group glucose entries into buckets indexed by minutes elapsed."""

@@ -564,6 +564,22 @@ class TestTimeAndIndexConversion:
         assert matrix._time_index_to_x(31) == 0  # Oldest = leftmost
         assert matrix._time_index_to_x(15) == 16  # Middle
 
+    def test_stale_entry_keeps_age_relative_timeline_position(self, matrix):
+        stale_time = datetime.now() - timedelta(hours=2)
+        matrix.formmated_entries = [GlucoseItem(EntrieEnum.SGV, 120, stale_time)]
+
+        matrix.average_entries_by_time(matrix.formmated_entries)
+
+        assert matrix.entries_by_time[24] == 120
+        assert matrix._time_index_to_x(24) == 7
+        assert matrix.entries_by_time[0] is None
+
+    def test_draw_stale_indicator(self, matrix):
+        matrix.draw_stale_indicator()
+
+        assert tuple(matrix.get_pixel(0, 0)) == Color.red.rgb
+        assert tuple(matrix.get_pixel(0, 4)) != (0, 0, 0)
+
     def test_plot_entry(self, matrix):
         # Mock formmated_entries for color determination
         now = datetime.now()

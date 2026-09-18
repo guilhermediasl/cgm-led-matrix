@@ -28,7 +28,7 @@ def get_nightmode() -> bool:
     Returns:
         bool: True if current time is night mode (21:00-06:00)
     """
-    DAY_START = 6
+    DAY_START = 7
     DAY_END = 21
     current_time = datetime.datetime.now()
     return current_time.hour < DAY_START or current_time.hour > DAY_END
@@ -64,6 +64,8 @@ class GlucoseMatrixDisplay:
         self.command = ''
         self.last_night_state = None
         self.run_command_count = 0
+        self.stale_data_displayed = False
+        self.last_stale_render = None
         self._load_config_values()
         self._setup_paths()
         if self.image_out == "led matrix" and self.os != "windows": self.unblock_bluetooth()
@@ -132,21 +134,22 @@ class GlucoseMatrixDisplay:
         self.OUTPUT_GIF_PATH = os.path.join("temp", "output_gif.gif")
         self.CONFIG_EXAMPLE_JSON_PATH = os.path.join('configurator', 'config.example.json')
                
-    def update_glucose_command(self, image_path=None):
+    def update_glucose_command(self, image_path=None, stale_data=False, fetch_data=True):
         """Update the LED matrix with latest glucose data.
         
         Args:
             image_path: Optional path to specific image file to display
         """
         logging.info("Updating glucose command.")
-        self.json_entries_data = self.fetch_json_data(self.url_entries)
-        self.json_treatments_data = self.fetch_json_data(self.url_treatments)
-        self.json_iob = self.fetch_json_data(self.url_iob)
+        if fetch_data:
+            self.json_entries_data = self.fetch_json_data(self.url_entries)
+            self.json_treatments_data = self.fetch_json_data(self.url_treatments)
+            self.json_iob = self.fetch_json_data(self.url_iob)
 
         if self.json_entries_data:
             self.parse_matrix_values()
             self._set_pixels_time()
-            self.pixelMatrix = self.build_pixel_matrix()
+            self.pixelMatrix = self.build_pixel_matrix(stale_data=stale_data)
 
             if image_path:
                 output_path = image_path
@@ -219,11 +222,15 @@ class GlucoseMatrixDisplay:
                     self.last_night_state = get_nightmode()
 
                 if not ping_json or self.is_old_data(ping_json, self.max_time, logging_enabled=True):
-                    if self.NO_DATA_IMAGE_PATH in self.command:
+                    now = datetime.datetime.now()
+                    if (self.last_stale_render is not None and
+                            (now - self.last_stale_render).total_seconds() < 60):
                         continue
-                    logging.info("Old or missing data detected, updating to no data image.")
-                    self.update_glucose_command(self.NO_DATA_IMAGE_PATH)
+                    logging.info("Old or missing data detected, displaying stale data.")
+                    self.update_glucose_command(stale_data=True)
                     self.run_command()
+                    self.stale_data_displayed = True
+                    self.last_stale_render = now
 
                 elif ping_json.get("_id") != self.newer_id or time_since_last_communication > 330:
                     logging.info("New data detected." if ping_json.get("_id") != self.newer_id else "No new data, but time since last communication exceeded threshold.")
@@ -232,10 +239,20 @@ class GlucoseMatrixDisplay:
                     self.run_command()
                     self.newer_id = ping_json.get("_id")
                     last_communication = datetime.datetime.now()
+                    self.stale_data_displayed = False
+                    self.last_stale_render = None
                 time.sleep(5)
             except Exception as e:
                 logging.error(f"Error in the loop: {e}")
                 logging.info(f"Pixel Matrix: {self.pixelMatrix}")
+                if getattr(self, "json_entries_data", None):
+                    try:
+                        logging.info("Displaying cached glucose data as stale.")
+                        self.update_glucose_command(stale_data=True, fetch_data=False)
+                        self.run_command()
+                        self.last_stale_render = datetime.datetime.now()
+                    except Exception as stale_error:
+                        logging.error(f"Unable to display cached glucose data: {stale_error}")
                 time.sleep(60)
 
     def increase_command_run_count(self) -> None:
@@ -299,6 +316,7 @@ class GlucoseMatrixDisplay:
             dict: JSON response data
         """
         attempt = 0
+        last_error = None
         while True:
             try:
                 logging.info(f"Fetching glucose data from {url}")
@@ -309,17 +327,19 @@ class GlucoseMatrixDisplay:
 
             except RemoteDisconnected as e:
                 logging.error(f"Remote end closed connection on attempt {attempt + 1}: {e}")
-                self.update_glucose_command(self.NO_WIFI_IMAGE_PATH)
-                self.run_command()
+                last_error = e
 
             except requests.exceptions.ConnectionError as e:
                 logging.error(f"Connection error on attempt {attempt + 1}: {e}")
+                last_error = e
 
             except requests.exceptions.Timeout as e:
                 logging.error(f"Request timed out on attempt {attempt + 1}: {e}")
+                last_error = e
 
             except requests.exceptions.RequestException as e:
                 logging.error(f"Error fetching data on attempt {attempt + 1}: {e}")
+                last_error = e
 
             # Handle retries and delays
             attempt += 1
@@ -327,9 +347,8 @@ class GlucoseMatrixDisplay:
                 logging.info(f"Retrying in {delay} seconds... (Attempt {attempt} of {retries})")
                 time.sleep(delay)
             else:
-                logging.error(f"Max retries ({retries}) reached. Retrying in {fallback_delay} seconds.")
-                attempt = 0  # Reset attempts after max retries
-                time.sleep(fallback_delay)  # Wait longer before retrying again
+                logging.error(f"Max retries ({retries}) reached. Returning control to the display loop.")
+                raise last_error
 
     def set_arrow(self):
         """Extract glucose trend arrow from latest SGV entry."""
@@ -359,7 +378,7 @@ class GlucoseMatrixDisplay:
         night_mode = get_nightmode()
         return night_mode != previus_nightmode
 
-    def build_pixel_matrix(self) -> PixelMatrix:
+    def build_pixel_matrix(self, stale_data=False) -> PixelMatrix:
         """Construct the complete pixel matrix with all data visualizations.
         
         Returns:
@@ -393,11 +412,14 @@ class GlucoseMatrixDisplay:
         if self.PLOT_GLUCOSE_INTERVALS: pixelMatrix.draw_glucose_intervals()
         pixelMatrix.draw_entries()
         
-        if self.show_time:
+        if self.show_time or stale_data:
             pixelMatrix.draw_corner_time(
                 position=self.time_position,
                 format_type=self.time_format
             )
+
+        if stale_data:
+            pixelMatrix.draw_stale_indicator()
         
         pixelMatrix.display_glucose_on_matrix(self.first_glucose_entry.glucose)
 
