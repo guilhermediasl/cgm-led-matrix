@@ -51,6 +51,8 @@ The CGM LED Matrix project is designed to display Continuous Glucose Monitoring 
    ```bash
    pip install -r requirements.txt
    ```
+
+   On a headless Raspberry Pi, install `requirements-rpi.txt` instead. It excludes the PyQt GUI and other desktop-only packages.
 4. Configure the project:
 
    - Copy the `config.json` template from `led_matrix_configurator` and update it with your Nightscout URL, token, and other settings.
