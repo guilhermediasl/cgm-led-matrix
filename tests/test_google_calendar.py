@@ -20,7 +20,7 @@ def test_sync_deletes_previous_events_before_creating_current_event():
 
     assert calendar.sync(62, "DoubleUp", -1) == "new-event"
     assert service.events().delete.call_args.kwargs["eventId"] == "old-event"
-    assert service.events().insert.call_args.kwargs["body"]["summary"] == "🟡 62 ↗ -1"
+    assert service.events().insert.call_args.kwargs["body"]["summary"] == "🟡 62 ↑↑ -1"
 
 
 def test_sync_resolves_calendar_name_and_creates_ten_minute_event():

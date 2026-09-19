@@ -69,7 +69,9 @@ class GoogleCalendarSync:
             credentials.refresh(Request())
         elif not credentials or not credentials.valid:
             if not os.path.exists(self.credentials_path):
-                raise FileNotFoundError(f"Google OAuth credentials not found: {self.credentials_path}")
+                raise FileNotFoundError(
+                    f"Google OAuth credentials not found: {os.path.abspath(self.credentials_path)}"
+                )
             flow = InstalledAppFlow.from_client_secrets_file(self.credentials_path, self.SCOPES)
             credentials = flow.run_local_server(port=0)
 

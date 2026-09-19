@@ -53,6 +53,7 @@ class GlucoseMatrixDisplay:
         self.PIXEL_INTERVAL = 5
         self.RUN_COMMAND_MAX_COUNT = 600
         self.max_time = self.PIXEL_INTERVAL * 60 * 1000 * self.matrix_size #milliseconds
+        self.config_path = os.path.abspath(config_path)
         self.config = self.load_config(config_path)
         self.arrow = ''
         self.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 0, datetime.datetime.now())
@@ -135,16 +136,21 @@ class GlucoseMatrixDisplay:
     def _setup_google_calendar(self):
         if not self.google_calendar_enabled:
             return None
+        project_root = os.path.dirname(os.path.dirname(self.config_path))
+
+        def project_path(path: str) -> str:
+            return path if os.path.isabs(path) else os.path.join(project_root, path)
+
         return GoogleCalendarSync(
             calendar_id=self.google_calendar_id,
-            credentials_path=self.google_calendar_credentials,
-            token_path=self.google_calendar_token,
+            credentials_path=project_path(self.google_calendar_credentials),
+            token_path=project_path(self.google_calendar_token),
             low_boundary=self.GLUCOSE_LOW,
             high_boundary=self.GLUCOSE_HIGH,
         )
 
     def sync_google_calendar(self) -> None:
-        if self.google_calendar is None or not self.formatted_entries:
+        if self.google_calendar is None or not self.first_glucose_entry.glucose:
             return
         try:
             self.google_calendar.sync(
