@@ -11,6 +11,7 @@ from http.client import RemoteDisconnected
 from util import GlucoseItem, IobItem, TreatmentItem, ExerciseItem, TreatmentEnum, EntrieEnum
 from PixelMatrix import PixelMatrix
 import bisect
+from google_calendar import GoogleCalendarSync
 
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 log_file = 'app.log'
@@ -68,6 +69,7 @@ class GlucoseMatrixDisplay:
         self.last_stale_render = None
         self._load_config_values()
         self._setup_paths()
+        self.google_calendar = self._setup_google_calendar()
         if self.image_out == "led matrix" and self.os != "windows": self.unblock_bluetooth()
 
     def load_config(self, config_path) -> dict:
@@ -85,16 +87,8 @@ class GlucoseMatrixDisplay:
         try:
             logging.info(f"Loading configuration from {config_path}")
             if not os.path.exists(config_path):
-                # Try to populate from example shipped with configurator
-                if os.path.exists(self.CONFIG_EXAMPLE_JSON_PATH):
-                    try:
-                        with open(self.CONFIG_EXAMPLE_JSON_PATH, 'r', encoding='utf-8') as src, open(config_path, 'w', encoding='utf-8') as dst:
-                            dst.write(src.read())
-                        logging.info(f"Created missing config from example at {config_path}")
-                    except Exception as e:
-                        logging.error(f"Failed to write config from example: {e}")
-                else:
-                    logging.error(f"Config not found and example not available: {config_path}")
+                logging.error(f"Config not found: {config_path}")
+                raise FileNotFoundError(config_path)
 
             with open(config_path, 'r', encoding='utf-8') as file:
                 config = json.load(file)
@@ -125,6 +119,10 @@ class GlucoseMatrixDisplay:
         self.time_format = self.config.get('time_format', 'HH:MM')
         self.time_position = self.config.get('time_position', 'top-right')
         self.time_color_fade = self.config.get('time_color_fade', 0.3)
+        self.google_calendar_enabled = self.config.get('google_calendar_enabled', False)
+        self.google_calendar_id = self.config.get('google_calendar_id', 'primary')
+        self.google_calendar_credentials = self.config.get('google_calendar_credentials', 'credentials.json')
+        self.google_calendar_token = self.config.get('google_calendar_token', 'calendar_token.json')
 
     def _setup_paths(self):
         """Initialize file paths for images and outputs."""
@@ -133,6 +131,30 @@ class GlucoseMatrixDisplay:
         self.OUTPUT_IMAGE_PATH = os.path.join("temp", "output_image.png")
         self.OUTPUT_GIF_PATH = os.path.join("temp", "output_gif.gif")
         self.CONFIG_EXAMPLE_JSON_PATH = os.path.join('configurator', 'config.example.json')
+
+    def _setup_google_calendar(self):
+        if not self.google_calendar_enabled:
+            return None
+        return GoogleCalendarSync(
+            calendar_id=self.google_calendar_id,
+            credentials_path=self.google_calendar_credentials,
+            token_path=self.google_calendar_token,
+            low_boundary=self.GLUCOSE_LOW,
+            high_boundary=self.GLUCOSE_HIGH,
+        )
+
+    def sync_google_calendar(self) -> None:
+        if self.google_calendar is None or not self.formatted_entries:
+            return
+        try:
+            self.google_calendar.sync(
+                self.first_glucose_entry.glucose,
+                self.first_glucose_entry.direction,
+                self.calc_glucose_difference(),
+            )
+            logging.info("Google Calendar event synchronized.")
+        except Exception as error:
+            logging.error(f"Google Calendar synchronization failed: {error}")
                
     def update_glucose_command(self, image_path=None, stale_data=False, fetch_data=True):
         """Update the LED matrix with latest glucose data.
@@ -229,6 +251,7 @@ class GlucoseMatrixDisplay:
                     logging.info("Old or missing data detected, displaying stale data.")
                     self.update_glucose_command(stale_data=True)
                     self.run_command()
+                    self.sync_google_calendar()
                     self.stale_data_displayed = True
                     self.last_stale_render = now
 
@@ -237,6 +260,7 @@ class GlucoseMatrixDisplay:
                     self.json_entries_data = self.fetch_json_data(self.url_entries)
                     self.update_glucose_command()
                     self.run_command()
+                    self.sync_google_calendar()
                     self.newer_id = ping_json.get("_id")
                     last_communication = datetime.datetime.now()
                     self.stale_data_displayed = False
@@ -250,6 +274,7 @@ class GlucoseMatrixDisplay:
                         logging.info("Displaying cached glucose data as stale.")
                         self.update_glucose_command(stale_data=True, fetch_data=False)
                         self.run_command()
+                        self.sync_google_calendar()
                         self.last_stale_render = datetime.datetime.now()
                     except Exception as stale_error:
                         logging.error(f"Unable to display cached glucose data: {stale_error}")

@@ -34,7 +34,11 @@
     "low boundary glucose": { "type": "integer" },
     "high boundary glucose": { "type": "integer" },
     "night_brightness": { "type": "number", "minimum": 0, "maximum": 100 },
-    "PIXEL_INTERVAL": { "type": "integer", "minimum": 1, "description": "minutes per pixel" }
+    "PIXEL_INTERVAL": { "type": "integer", "minimum": 1, "description": "minutes per pixel" },
+    "google_calendar_enabled": { "type": "boolean", "description": "Synchronize the current glucose reading to Google Calendar" },
+    "google_calendar_id": { "type": "string", "description": "Google Calendar ID, usually primary" },
+    "google_calendar_credentials": { "type": "string", "description": "OAuth client credentials JSON path" },
+    "google_calendar_token": { "type": "string", "description": "OAuth token JSON path" }
   },
   "required": ["token", "url", "output type"]
 }

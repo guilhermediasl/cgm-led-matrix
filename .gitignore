@@ -5,3 +5,5 @@ led_matrix_configurator/config.json
 .coverage
 .idea
 configurator/config.json
+credentials.json
+calendar_token.json

@@ -13,5 +13,9 @@
   "low boundary glucose": 70,
   "high boundary glucose": 160,
   "night_brightness": 10,
-  "PIXEL_INTERVAL": 5
+  "PIXEL_INTERVAL": 5,
+  "google_calendar_enabled": false,
+  "google_calendar_id": "cgm",
+  "google_calendar_credentials": "credentials.json",
+  "google_calendar_token": "calendar_token.json"
 }

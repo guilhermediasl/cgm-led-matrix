@@ -74,6 +74,33 @@ The `config.json` file in the `led_matrix_configurator` directory contains the f
 - **Matrix Size**: Supported sizes are 16x16 and 32x32.
 - **Brightness**: Adjusts display brightness for day and night modes.
 - **Output Type**: Choose between image or GIF output.
+- **Google Calendar**: Configure the four keys below. The app deletes its previous event before creating a new ten-minute event such as `🟡 62 ↗ -1`.
+
+### Google Calendar Setup
+
+1. In Google Cloud Console, create or select a project.
+2. Enable **Google Calendar API**.
+3. Configure the OAuth consent screen. For personal use, add your Google account as a test user if Google requests it.
+4. Create OAuth credentials with application type **Desktop app**.
+5. Create a calendar named `cgm` in Google Calendar.
+6. Download the JSON file and save it in the project root with the name configured by `google_calendar_credentials` (normally `credentials.json`).
+7. Fill the Calendar settings as follows:
+
+```json
+{
+   "google_calendar_enabled": true,
+   "google_calendar_id": "cgm",
+   "google_calendar_credentials": "credentials.json",
+   "google_calendar_token": "calendar_token.json"
+}
+```
+
+- `google_calendar_enabled`: use `true` to synchronize events or `false` to disable synchronization.
+- `google_calendar_id`: use the calendar name, such as `cgm`. The app finds the calendar by name. `primary` can still be used for the main calendar.
+- `google_calendar_credentials`: path to the OAuth Desktop app JSON downloaded from Google Cloud. Do not commit this file.
+- `google_calendar_token`: path where the app stores the authorization token. It is created automatically after the first login. Do not commit this file.
+
+Run `python GlucosePixelMatrix.py` once with synchronization enabled. A browser window will open for authorization. The app then creates one event lasting ten minutes and replaces it on the next update.
 
 # CGM LED Matrix
 
