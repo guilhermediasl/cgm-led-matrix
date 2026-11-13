@@ -62,6 +62,8 @@ The CGM LED Matrix project is designed to display Continuous Glucose Monitoring 
    python GlucosePixelMatrix.py
    ```
 
+   For automatic startup on Raspberry Pi, configure the boot service to run `run_glucose.sh`. It uses the project `.venv` explicitly, so Calendar dependencies are available after reboot.
+
 ## Usage
 
 ### Continuous Glucose Monitoring
@@ -76,7 +78,7 @@ The `config.json` file in the `led_matrix_configurator` directory contains the f
 - **Matrix Size**: Supported sizes are 16x16 and 32x32.
 - **Brightness**: Adjusts display brightness for day and night modes.
 - **Output Type**: Choose between image or GIF output.
-- **Google Calendar**: Configure the four keys below. The app deletes its previous event before creating a new ten-minute event such as `🟡 62 ↗ -1`.
+- **Bluetooth Mode** (`ble_mode`): `persistent` (default) keeps a single Bluetooth connection open through the local `idotmatrix_ble` package, so the display no longer blinks its Bluetooth icon before every update. Set it to `subprocess` to fall back to the old `idotmatrix` CLI that reconnects on each update.- **Google Calendar**: Configure the four keys below. The app deletes its previous event before creating a new ten-minute event such as `🟡 62 ↗ -1`.
 
 ### Google Calendar Setup
 

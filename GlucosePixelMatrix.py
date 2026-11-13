@@ -23,6 +23,10 @@ logger.setLevel(logging.INFO)
 logger.addHandler(handler)
 
 
+class NightscoutConnectionError(Exception):
+    """Raised when Nightscout cannot be reached after all retry attempts."""
+
+
 def get_nightmode() -> bool:
     """Determine if current time is in night mode.
 
@@ -64,6 +68,9 @@ class GlucoseMatrixDisplay:
         self.iob_list: List[IobItem] = []
         self.newer_id = None
         self.command = ''
+        self.display_action = None
+        self.matrix_client = None
+        self.http = requests.Session()
         self.last_night_state = None
         self.run_command_count = 0
         self.stale_data_displayed = False
@@ -93,7 +100,8 @@ class GlucoseMatrixDisplay:
 
             with open(config_path, 'r', encoding='utf-8') as file:
                 config = json.load(file)
-                logging.info(f"Configuration loaded successfully: {config}")
+                redacted = {k: ("***" if k == "token" else v) for k, v in config.items()}
+                logging.info(f"Configuration loaded successfully: {redacted}")
                 return config
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logging.error(f"Error loading configuration file: {e}")
@@ -111,6 +119,8 @@ class GlucoseMatrixDisplay:
         self.GLUCOSE_HIGH = self.config.get('high boundary glucose')
         self.os = self.config.get('os', 'linux').lower()
         self.image_out = self.config.get('image out', 'led matrix')
+        # 'persistent' keeps one Bluetooth connection open; 'subprocess' uses the old CLI per update.
+        self.ble_mode = str(self.config.get('ble_mode', 'persistent')).lower()
         self.output_type = self.config.get("output type")
         self.night_brightness = self.config.get('night_brightness')
         self.PLOT_GLUCOSE_INTERVALS: bool = self.config.get('plot glucose intervals', True)
@@ -145,8 +155,8 @@ class GlucoseMatrixDisplay:
             calendar_id=self.google_calendar_id,
             credentials_path=project_path(self.google_calendar_credentials),
             token_path=project_path(self.google_calendar_token),
-            low_boundary=self.GLUCOSE_LOW,
-            high_boundary=self.GLUCOSE_HIGH,
+            low_boundary=self.GLUCOSE_LOW or 70,
+            high_boundary=self.GLUCOSE_HIGH or 160,
         )
 
     def sync_google_calendar(self) -> None:
@@ -174,40 +184,49 @@ class GlucoseMatrixDisplay:
             self.json_treatments_data = self.fetch_json_data(self.url_treatments)
             self.json_iob = self.fetch_json_data(self.url_iob)
 
-        if self.json_entries_data:
+        if getattr(self, "json_entries_data", None):
             self.parse_matrix_values()
             self._set_pixels_time()
             self.pixelMatrix = self.build_pixel_matrix(stale_data=stale_data)
 
-            if image_path:
-                output_path = image_path
-            elif self.output_type == "image":
-                output_path = self.OUTPUT_IMAGE_PATH
-                self.pixelMatrix.generate_image(output_path)
-            else:
-                self.pixelMatrix.generate_timer_gif()
-                output_path = self.OUTPUT_GIF_PATH
-
-            type_command = "--image true --set-image" if image_path or self.output_type == "image" else "--set-gif"
-
             self.reset_formmated_jsons()
-            logging.info(f"Output generated and saved as {output_path}")
 
-            if self.os == 'windows':
-                self.command = f"idotmatrix/run_in_venv.bat --address {self.ip} {type_command} {output_path}"
-            else:
-                self.command = f"./idotmatrix/run_in_venv.sh --address {self.ip} {type_command} {output_path}"
+        if image_path:
+            output_path = image_path
+        elif self.pixelMatrix is None:
+            logging.error("No cached glucose data is available to render.")
+            return
+        elif self.output_type == "image":
+            output_path = self.OUTPUT_IMAGE_PATH
+            self.pixelMatrix.generate_image(output_path)
+        else:
+            self.pixelMatrix.generate_timer_gif()
+            output_path = self.OUTPUT_GIF_PATH
+
+        is_image = bool(image_path) or self.output_type == "image"
+        type_command = "--image true --set-image" if is_image else "--set-gif"
+        self.display_action = ("image" if is_image else "gif", output_path)
+
+        logging.info(f"Output generated and saved as {output_path}")
+        if self.os == 'windows':
+            self.command = f"idotmatrix/run_in_venv.bat --address {self.ip} {type_command} {output_path}"
+        else:
+            self.command = f"./idotmatrix/run_in_venv.sh --address {self.ip} {type_command} {output_path}"
         logging.info(f"Command updated: {self.command}")
 
 
 
     def run_command(self):
         """Execute the prepared command to update LED matrix display."""
-        logging.info(f"Running command: {self.command}")
-        if self.image_out != "led matrix":            
+        if self.image_out != "led matrix":
             logging.info("Image output is not 'led matrix', skipping command execution.")
             return
 
+        if self.ble_mode == "persistent" and self.display_action is not None:
+            self._run_persistent_action()
+            return
+
+        logging.info(f"Running command: {self.command}")
         for _ in range(1,5):
             try:
                 result = subprocess.run(self.command, shell=True, check=True)
@@ -221,13 +240,43 @@ class GlucoseMatrixDisplay:
                 logging.error(f"Command failed with error: {e}")
                 time.sleep(2)
 
-    def set_command(self, command: str):
+    def _get_matrix_client(self):
+        """Return the shared persistent Bluetooth client, creating it on first use."""
+        if self.matrix_client is None:
+            from idotmatrix_ble import MatrixClient
+            self.matrix_client = MatrixClient(self.ip)
+        return self.matrix_client
+
+    def _run_persistent_action(self):
+        """Send the pending action over the persistent Bluetooth connection."""
+        kind, value = self.display_action
+        logging.info(f"Sending '{kind}' over persistent BLE connection: {value}")
+        try:
+            client = self._get_matrix_client()
+            if kind == "image":
+                client.set_image(value)
+            elif kind == "gif":
+                client.set_gif(value)
+            elif kind == "brightness":
+                client.set_brightness(int(value))
+            elif kind == "reset":
+                client.reset()
+            else:
+                raise ValueError(f"Unknown display action: {kind}")
+            logging.info(f"Persistent BLE '{kind}' sent, with last glucose: {self.first_glucose_entry}")
+            self.increase_command_run_count()
+        except Exception as e:
+            logging.error(f"Persistent BLE '{kind}' failed: {e}")
+
+    def set_command(self, command: str, action=None):
         """Set the command string for LED matrix communication.
-        
+
         Args:
-            command: Shell command to execute
+            command: Shell command to execute (subprocess mode)
+            action: (kind, value) tuple used by the persistent BLE mode
         """
         self.command = command
+        self.display_action = action
 
     def run_command_in_loop(self):
         """Main application loop - continuously fetch and display glucose data."""
@@ -238,7 +287,7 @@ class GlucoseMatrixDisplay:
             try:
                 ping_json = self.fetch_json_data(self.url_ping_entries)[0]
                 time_since_last_communication = (datetime.datetime.now() - last_communication).total_seconds()
-                logging.info(f"Time since last communication: {time_since_last_communication:.2f} seconds")
+                logging.debug(f"Time since last communication: {time_since_last_communication:.2f} seconds")
                 
                 if self.is_run_command_count_exceeded():
                     logging.info("Run command count exceeded, resetting command.")
@@ -253,6 +302,7 @@ class GlucoseMatrixDisplay:
                     now = datetime.datetime.now()
                     if (self.last_stale_render is not None and
                             (now - self.last_stale_render).total_seconds() < 60):
+                        time.sleep(5)
                         continue
                     logging.info("Old or missing data detected, displaying stale data.")
                     self.update_glucose_command(stale_data=True)
@@ -263,7 +313,6 @@ class GlucoseMatrixDisplay:
 
                 elif ping_json.get("_id") != self.newer_id or time_since_last_communication > 330:
                     logging.info("New data detected." if ping_json.get("_id") != self.newer_id else "No new data, but time since last communication exceeded threshold.")
-                    self.json_entries_data = self.fetch_json_data(self.url_entries)
                     self.update_glucose_command()
                     self.run_command()
                     self.sync_google_calendar()
@@ -272,6 +321,20 @@ class GlucoseMatrixDisplay:
                     self.stale_data_displayed = False
                     self.last_stale_render = None
                 time.sleep(5)
+            except NightscoutConnectionError as e:
+                logging.error(
+                    "Nightscout/Internet unavailable after retries; the router may still be powered on: %s",
+                    e,
+                )
+                try:
+                    self.update_glucose_command(
+                        image_path=self.NO_WIFI_IMAGE_PATH,
+                        fetch_data=False,
+                    )
+                    self.run_command()
+                except Exception as display_error:
+                    logging.error(f"Unable to display internet error image: {display_error}")
+                time.sleep(60)
             except Exception as e:
                 logging.error(f"Error in the loop: {e}")
                 logging.info(f"Pixel Matrix: {self.pixelMatrix}")
@@ -315,7 +378,7 @@ class GlucoseMatrixDisplay:
             command = f"idotmatrix/run_in_venv.bat --address {self.ip} --reset"
         else:
             command = f"./idotmatrix/run_in_venv.sh --address {self.ip} --reset"
-        self.set_command(command)
+        self.set_command(command, ("reset", None))
         self.run_command()
 
     def run_set_brightness_command(self):
@@ -325,7 +388,7 @@ class GlucoseMatrixDisplay:
             command = f"idotmatrix/run_in_venv.bat --address {self.ip} --set-brightness {brightness}"
         else:
             command = f"./idotmatrix/run_in_venv.sh --address {self.ip} --set-brightness {brightness}"
-        self.set_command(command)
+        self.set_command(command, ("brightness", brightness))
         self.run_command()
 
     def reset_formmated_jsons(self):
@@ -350,10 +413,12 @@ class GlucoseMatrixDisplay:
         last_error = None
         while True:
             try:
-                logging.info(f"Fetching glucose data from {url}")
-                response = requests.get(url, timeout=10)
+                safe_url = url.split("?", 1)[0]  # never log the token
+                logging.debug(f"Fetching {safe_url}")
+                # A shared Session reuses the HTTPS connection instead of a new TLS
+                # handshake on every 5-second poll (noticeable on a Pi Zero).
+                response = self.http.get(url, timeout=10)
                 response.raise_for_status()
-                logging.info("Glucose data fetched successfully.")
                 return response.json()
 
             except RemoteDisconnected as e:
@@ -379,6 +444,8 @@ class GlucoseMatrixDisplay:
                 time.sleep(delay)
             else:
                 logging.error(f"Max retries ({retries}) reached. Returning control to the display loop.")
+                if isinstance(last_error, (RemoteDisconnected, requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+                    raise NightscoutConnectionError(f"Unable to reach {url}") from last_error
                 raise last_error
 
     def set_arrow(self):
@@ -834,4 +901,15 @@ class GlucoseMatrixDisplay:
         self.pixels_time = [datetime.datetime.now() - datetime.timedelta(minutes=i * self.PIXEL_INTERVAL) for i in range(self.matrix_size)]
 
 if __name__ == "__main__":
-    GlucoseMatrixDisplay().run_command_in_loop()
+    import signal
+    import sys
+
+    # systemd stops the service with SIGTERM; turn it into SystemExit so the
+    # Bluetooth link is released instead of being left open in BlueZ.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    display = GlucoseMatrixDisplay()
+    try:
+        display.run_command_in_loop()
+    finally:
+        if display.matrix_client is not None:
+            display.matrix_client.close()
