@@ -181,3 +181,52 @@ class TestUtilityFunctions:
         """Just ensure it runs with current system time."""
         result = get_nightmode()
         assert isinstance(result, bool)
+
+
+class TestClockRefresh:
+    """The on-screen clock is drawn into the image, so it must be redrawn when the minute changes."""
+
+    @pytest.fixture
+    def display(self, temp_config_file):
+        display = GlucoseMatrixDisplay(temp_config_file)
+        display.show_time = True
+        display.json_entries_data = [{"sgv": 120}]
+        display.pixelMatrix = MagicMock()
+        display.update_glucose_command = MagicMock()
+        display.run_command = MagicMock()
+        return display
+
+    def test_redraws_when_minute_changed(self, display):
+        display.last_render = datetime.now() - timedelta(minutes=1)
+        assert display.refresh_clock_if_needed() is True
+        display.update_glucose_command.assert_called_once_with(stale_data=False, fetch_data=False)
+        display.run_command.assert_called_once()
+
+    def test_keeps_stale_marker_when_redrawing(self, display):
+        display.stale_data_displayed = True
+        display.last_render = datetime.now() - timedelta(minutes=2)
+        display.refresh_clock_if_needed()
+        display.update_glucose_command.assert_called_once_with(stale_data=True, fetch_data=False)
+
+    def test_no_redraw_within_same_minute(self, display):
+        display.last_render = datetime.now()
+        assert display.refresh_clock_if_needed() is False
+        display.run_command.assert_not_called()
+
+    def test_no_redraw_when_clock_hidden(self, display):
+        display.show_time = False
+        display.last_render = datetime.now() - timedelta(minutes=5)
+        assert display.refresh_clock_if_needed() is False
+
+    def test_no_redraw_over_fixed_image(self, display):
+        display.showing_fixed_image = True  # e.g. the no-wifi image
+        display.last_render = datetime.now() - timedelta(minutes=5)
+        assert display.refresh_clock_if_needed() is False
+
+    def test_poll_wakes_right_after_minute_change(self, display):
+        fake_now = datetime(2026, 11, 12, 22, 49, 58, 500000)
+        with patch("GlucosePixelMatrix.datetime") as mock_dt:
+            mock_dt.datetime.now.return_value = fake_now
+            assert display._poll_interval() == pytest.approx(1.7)
+        display.show_time = False
+        assert display._poll_interval() == 5.0

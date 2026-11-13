@@ -69,6 +69,8 @@ class GlucoseMatrixDisplay:
         self.newer_id = None
         self.display_action = None
         self.matrix_client = None
+        self.last_render = None
+        self.showing_fixed_image = False
         self.http = requests.Session()
         self.last_night_state = None
         self.run_command_count = 0
@@ -188,6 +190,7 @@ class GlucoseMatrixDisplay:
 
             self.reset_formmated_jsons()
 
+        self.showing_fixed_image = bool(image_path)
         if image_path:
             output_path = image_path
         elif self.pixelMatrix is None:
@@ -200,9 +203,39 @@ class GlucoseMatrixDisplay:
             self.pixelMatrix.generate_timer_gif()
             output_path = self.OUTPUT_GIF_PATH
 
+        if not image_path:
+            self.last_render = datetime.datetime.now()
         is_image = bool(image_path) or self.output_type == "image"
         self.display_action = ("image" if is_image else "gif", output_path)
         logging.info(f"Output generated and saved as {output_path}")
+
+    def _poll_interval(self, default: float = 5.0) -> float:
+        """Seconds until the next poll: normally 5 s, but wake right after the
+        minute changes when the clock is shown, so it flips on time."""
+        if not self.show_time:
+            return default
+        now = datetime.datetime.now()
+        to_next_minute = 60 - now.second - now.microsecond / 1_000_000 + 0.2
+        return max(0.2, min(default, to_next_minute))
+
+    def refresh_clock_if_needed(self) -> bool:
+        """Redraw with cached data when the minute changes, so the on-screen clock
+        stays correct even when no new glucose reading arrives for a while.
+
+        Returns:
+            bool: True if the display was redrawn
+        """
+        if not self.show_time or self.showing_fixed_image or self.pixelMatrix is None:
+            return False
+        if not getattr(self, "json_entries_data", None):
+            return False
+        now = datetime.datetime.now()
+        if self.last_render is not None and self.last_render.replace(second=0, microsecond=0) == now.replace(second=0, microsecond=0):
+            return False
+        logging.info("Minute changed, redrawing to keep the clock current.")
+        self.update_glucose_command(stale_data=self.stale_data_displayed, fetch_data=False)
+        self.run_command()
+        return True
 
     def _get_matrix_client(self):
         """Return the shared persistent Bluetooth client, creating it on first use."""
@@ -269,7 +302,8 @@ class GlucoseMatrixDisplay:
                     now = datetime.datetime.now()
                     if (self.last_stale_render is not None and
                             (now - self.last_stale_render).total_seconds() < 60):
-                        time.sleep(5)
+                        self.refresh_clock_if_needed()
+                        time.sleep(self._poll_interval())
                         continue
                     logging.info("Old or missing data detected, displaying stale data.")
                     self.update_glucose_command(stale_data=True)
@@ -287,7 +321,9 @@ class GlucoseMatrixDisplay:
                     last_communication = datetime.datetime.now()
                     self.stale_data_displayed = False
                     self.last_stale_render = None
-                time.sleep(5)
+                else:
+                    self.refresh_clock_if_needed()
+                time.sleep(self._poll_interval())
             except NightscoutConnectionError as e:
                 logging.error(
                     "Nightscout/Internet unavailable after retries; the router may still be powered on: %s",
