@@ -67,7 +67,6 @@ class GlucoseMatrixDisplay:
         self.formatted_basal: List[TreatmentItem] = []
         self.iob_list: List[IobItem] = []
         self.newer_id = None
-        self.command = ''
         self.display_action = None
         self.matrix_client = None
         self.http = requests.Session()
@@ -119,8 +118,6 @@ class GlucoseMatrixDisplay:
         self.GLUCOSE_HIGH = self.config.get('high boundary glucose')
         self.os = self.config.get('os', 'linux').lower()
         self.image_out = self.config.get('image out', 'led matrix')
-        # 'persistent' keeps one Bluetooth connection open; 'subprocess' uses the old CLI per update.
-        self.ble_mode = str(self.config.get('ble_mode', 'persistent')).lower()
         self.output_type = self.config.get("output type")
         self.night_brightness = self.config.get('night_brightness')
         self.PLOT_GLUCOSE_INTERVALS: bool = self.config.get('plot glucose intervals', True)
@@ -204,51 +201,23 @@ class GlucoseMatrixDisplay:
             output_path = self.OUTPUT_GIF_PATH
 
         is_image = bool(image_path) or self.output_type == "image"
-        type_command = "--image true --set-image" if is_image else "--set-gif"
         self.display_action = ("image" if is_image else "gif", output_path)
-
         logging.info(f"Output generated and saved as {output_path}")
-        if self.os == 'windows':
-            self.command = f"idotmatrix/run_in_venv.bat --address {self.ip} {type_command} {output_path}"
-        else:
-            self.command = f"./idotmatrix/run_in_venv.sh --address {self.ip} {type_command} {output_path}"
-        logging.info(f"Command updated: {self.command}")
-
-
-
-    def run_command(self):
-        """Execute the prepared command to update LED matrix display."""
-        if self.image_out != "led matrix":
-            logging.info("Image output is not 'led matrix', skipping command execution.")
-            return
-
-        if self.ble_mode == "persistent" and self.display_action is not None:
-            self._run_persistent_action()
-            return
-
-        logging.info(f"Running command: {self.command}")
-        for _ in range(1,5):
-            try:
-                result = subprocess.run(self.command, shell=True, check=True)
-                if result.returncode != 0:
-                    logging.error("Command failed.")
-                else:
-                    logging.info(f"Command executed successfully, with last glucose: {self.first_glucose_entry}")
-                    self.increase_command_run_count()
-                    break
-            except subprocess.CalledProcessError as e:
-                logging.error(f"Command failed with error: {e}")
-                time.sleep(2)
 
     def _get_matrix_client(self):
         """Return the shared persistent Bluetooth client, creating it on first use."""
         if self.matrix_client is None:
-            from idotmatrix_ble import MatrixClient
+            from idotmatrix import MatrixClient
             self.matrix_client = MatrixClient(self.ip)
         return self.matrix_client
 
-    def _run_persistent_action(self):
-        """Send the pending action over the persistent Bluetooth connection."""
+    def run_command(self):
+        """Send the pending display action over the persistent Bluetooth connection."""
+        if self.image_out != "led matrix":
+            logging.info("Image output is not 'led matrix', skipping display update.")
+            return
+        if self.display_action is None:
+            return
         kind, value = self.display_action
         logging.info(f"Sending '{kind}' over persistent BLE connection: {value}")
         try:
@@ -268,14 +237,12 @@ class GlucoseMatrixDisplay:
         except Exception as e:
             logging.error(f"Persistent BLE '{kind}' failed: {e}")
 
-    def set_command(self, command: str, action=None):
-        """Set the command string for LED matrix communication.
+    def set_command(self, action):
+        """Set the pending display action.
 
         Args:
-            command: Shell command to execute (subprocess mode)
-            action: (kind, value) tuple used by the persistent BLE mode
+            action: (kind, value) tuple; kind is image, gif, brightness or reset
         """
-        self.command = command
         self.display_action = action
 
     def run_command_in_loop(self):
@@ -374,21 +341,13 @@ class GlucoseMatrixDisplay:
     def run_reset_command(self):
         """Send reset command to LED matrix to clear due to memory limitation of the IDot matrix."""
         logging.info("Running reset command.")
-        if self.os == 'windows':
-            command = f"idotmatrix/run_in_venv.bat --address {self.ip} --reset"
-        else:
-            command = f"./idotmatrix/run_in_venv.sh --address {self.ip} --reset"
-        self.set_command(command, ("reset", None))
+        self.set_command(("reset", None))
         self.run_command()
 
     def run_set_brightness_command(self):
         """Send Adjust LED matrix brightness based on day/night mode."""
         brightness = self.night_brightness if get_nightmode() else 100
-        if self.os == 'windows':
-            command = f"idotmatrix/run_in_venv.bat --address {self.ip} --set-brightness {brightness}"
-        else:
-            command = f"./idotmatrix/run_in_venv.sh --address {self.ip} --set-brightness {brightness}"
-        self.set_command(command, ("brightness", brightness))
+        self.set_command(("brightness", brightness))
         self.run_command()
 
     def reset_formmated_jsons(self):

@@ -21,15 +21,15 @@ The CGM LED Matrix project is designed to display Continuous Glucose Monitoring 
 ## Built With
 
 - **Python 3**: Core programming language.
-- **iDotMatrix Library**: For Bluetooth communication with LED displays.
+- **[iDotMatrix Library (maintained fork)](https://github.com/guilhermediasl/python3-idotmatrix-library)**: Bluetooth communication with the display over a single persistent connection.
 - **PyQt5**: GUI for configuring and controlling the displays.
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.7 or higher
-- Pip (Python package manager)
+- Python 3.8 or higher
+- Pip (Python package manager) and Git (the display library is installed from GitHub)
 - Nightscout instance with API token
 
 ### Steps
@@ -37,14 +37,14 @@ The CGM LED Matrix project is designed to display Continuous Glucose Monitoring 
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/cgm-led-matrix.git
+   git clone https://github.com/guilhermediasl/cgm-led-matrix.git
    cd cgm-led-matrix
    ```
-2. Create a virtual environment and activate it:
+2. Create a virtual environment named `.venv` and activate it:
 
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   python3 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 3. Install dependencies:
 
@@ -62,7 +62,26 @@ The CGM LED Matrix project is designed to display Continuous Glucose Monitoring 
    python GlucosePixelMatrix.py
    ```
 
-   For automatic startup on Raspberry Pi, configure the boot service to run `run_glucose.sh`. It uses the project `.venv` explicitly, so Calendar dependencies are available after reboot.
+   For automatic startup on Raspberry Pi, run `run_glucose.sh` from a systemd service. It uses the project `.venv` explicitly, so all dependencies are available after reboot. Example `/etc/systemd/system/glucose_matrix.service`:
+
+   ```ini
+   [Unit]
+   Description=Start Glucose Matrix Display
+   After=network-online.target bluetooth.target
+   Wants=network-online.target
+
+   [Service]
+   ExecStart=/home/pi/cgm-led-matrix/run_glucose.sh
+   WorkingDirectory=/home/pi/cgm-led-matrix
+   User=pi
+   Restart=always
+   RestartSec=10
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   Enable it with `sudo systemctl daemon-reload && sudo systemctl enable --now glucose_matrix.service`. On stop, the app releases the Bluetooth link cleanly.
 
 ## Usage
 
@@ -78,7 +97,7 @@ The `config.json` file in the `led_matrix_configurator` directory contains the f
 - **Matrix Size**: Supported sizes are 16x16 and 32x32.
 - **Brightness**: Adjusts display brightness for day and night modes.
 - **Output Type**: Choose between image or GIF output.
-- **Bluetooth Mode** (`ble_mode`): `persistent` (default) keeps a single Bluetooth connection open through the local `idotmatrix_ble` package, so the display no longer blinks its Bluetooth icon before every update. Set it to `subprocess` to fall back to the old `idotmatrix` CLI that reconnects on each update.- **Google Calendar**: Configure the four keys below. The app deletes its previous event before creating a new ten-minute event such as `🟡 62 ↗ -1`.
+- **Google Calendar**: Configure the four keys below. The app deletes its previous event before creating a new ten-minute event such as `🟡 62 ↗ -1`.
 
 ### Google Calendar Setup
 
@@ -138,7 +157,11 @@ The `config.json` file is used to configure the behavior of the LED matrix. Belo
 }
 ```
 
-Ensure the `ip` field matches the Bluetooth MAC address of your LED matrix, follow the documentation for the python3-idotmatrix-client documentation.
+Ensure the `ip` field matches the Bluetooth MAC address of your LED matrix. To find it, scan for displays (their names start with `IDM-`):
+
+```bash
+python -c "import asyncio; from idotmatrix import ConnectionManager; print(asyncio.run(ConnectionManager.scan()))"
+```
 
 ## Hardware Setup
 
@@ -148,22 +171,20 @@ This project is designed to run on a **Raspberry Pi Zero** and communicates with
 
 - **Raspberry Pi Zero**: Used as the main controller.
 - **32x32 LED Matrix Display**: The display communicates via Bluetooth.
-- **Python3-idotmatrix-client**: A Python library for communicating with the LED matrix. The library's documentation can be found [here](https://github.com/derkalle4/python3-idotmatrix-client).
+- **[python3-idotmatrix-library (fork)](https://github.com/guilhermediasl/python3-idotmatrix-library)**: installed by `requirements*.txt`, pinned to a release tag.
 
 ### Communication Setup
 
-To set up communication with the LED matrix, follow the steps outlined in the [python3-idotmatrix-client documentation](https://github.com/derkalle4/python3-idotmatrix-client). Ensure that:
+The app keeps one Bluetooth Low Energy connection open to the display and reuses it for every update, so the display does not flash its Bluetooth icon or a black frame between images. It reconnects automatically if the link drops or the display is power-cycled. Ensure that:
 
-1. The Raspberry Pi Zero is configured with Bluetooth enabled.
-2. The LED matrix is paired with the Raspberry Pi.
-
-Refer to the library's documentation for detailed instructions on installation and usage.
+1. Bluetooth is enabled on the Raspberry Pi (the app runs `rfkill unblock bluetooth` on Linux at startup).
+2. The display is in range and not connected to the phone app. Pairing is not required.
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0. See the [LICENSE](./idotmatrix/LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0. See the [LICENSE](./LICENSE) file for details.
 
 ## Acknowledgements
 
 - [Nightscout](https://nightscout.info/) for providing the CGM data platform.
-- [iDotMatrix Library](https://github.com/derkalle4/python3-idotmatrix-library) for LED matrix communication.
+- [python3-idotmatrix-library](https://github.com/derkalle4/python3-idotmatrix-library) by Kalle Minkner, Jon-Mailes Graeffe and contributors, for reverse-engineering the iDotMatrix protocol. This project uses a [maintained fork](https://github.com/guilhermediasl/python3-idotmatrix-library) with a persistent connection.
