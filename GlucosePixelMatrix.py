@@ -69,7 +69,7 @@ class GlucoseMatrixDisplay:
         self.newer_id = None
         self.display_action = None
         self.matrix_client = None
-        self.last_render = None
+        self.rendered_state = None
         self.showing_fixed_image = False
         self.http = requests.Session()
         self.last_night_state = None
@@ -120,7 +120,6 @@ class GlucoseMatrixDisplay:
         self.GLUCOSE_HIGH = self.config.get('high boundary glucose')
         self.os = self.config.get('os', 'linux').lower()
         self.image_out = self.config.get('image out', 'led matrix')
-        self.output_type = self.config.get("output type")
         self.night_brightness = self.config.get('night_brightness')
         self.PLOT_GLUCOSE_INTERVALS: bool = self.config.get('plot glucose intervals', True)
         
@@ -139,7 +138,6 @@ class GlucoseMatrixDisplay:
         self.NO_DATA_IMAGE_PATH = os.path.join('images', 'nocgmdata.png')
         self.NO_WIFI_IMAGE_PATH = os.path.join('images', 'no_wifi.png')
         self.OUTPUT_IMAGE_PATH = os.path.join("temp", "output_image.png")
-        self.OUTPUT_GIF_PATH = os.path.join("temp", "output_gif.gif")
         self.CONFIG_EXAMPLE_JSON_PATH = os.path.join('configurator', 'config.example.json')
 
     def _setup_google_calendar(self):
@@ -183,10 +181,13 @@ class GlucoseMatrixDisplay:
             self.json_treatments_data = self.fetch_json_data(self.url_treatments)
             self.json_iob = self.fetch_json_data(self.url_iob)
 
+        state = None
         if getattr(self, "json_entries_data", None):
             self.parse_matrix_values()
+            # Capture once so the drawn counter and the recorded state always agree.
+            state = self._display_state()
             self._set_pixels_time()
-            self.pixelMatrix = self.build_pixel_matrix(stale_data=stale_data)
+            self.pixelMatrix = self.build_pixel_matrix(stale_data=stale_data, reading_age=state[1])
 
             self.reset_formmated_jsons()
 
@@ -196,43 +197,55 @@ class GlucoseMatrixDisplay:
         elif self.pixelMatrix is None:
             logging.error("No cached glucose data is available to render.")
             return
-        elif self.output_type == "image":
+        else:
             output_path = self.OUTPUT_IMAGE_PATH
             self.pixelMatrix.generate_image(output_path)
-        else:
-            self.pixelMatrix.generate_timer_gif()
-            output_path = self.OUTPUT_GIF_PATH
-
-        if not image_path:
-            self.last_render = datetime.datetime.now()
-        is_image = bool(image_path) or self.output_type == "image"
-        self.display_action = ("image" if is_image else "gif", output_path)
+            self.rendered_state = state or self._display_state()
+        self.display_action = ("image", output_path)
         logging.info(f"Output generated and saved as {output_path}")
+
+    def reading_age_minutes(self) -> int:
+        """Whole minutes since the last glucose reading (0 if none yet)."""
+        if not self.first_glucose_entry.glucose:
+            return 0
+        age = datetime.datetime.now() - self.first_glucose_entry.date
+        return max(0, int(age.total_seconds() // 60))
+
+    def _display_state(self):
+        """What the minute-based indicators currently show: the clock minute (if
+        shown) and the reading-age counter. A change means a redraw is due."""
+        now = datetime.datetime.now()
+        clock_minute = now.replace(second=0, microsecond=0) if self.show_time else None
+        age = min(self.reading_age_minutes(), PixelMatrix.READING_AGE_PIXELS)
+        return clock_minute, age
 
     def _poll_interval(self, default: float = 5.0) -> float:
         """Seconds until the next poll: normally 5 s, but wake right after the
-        minute changes when the clock is shown, so it flips on time."""
-        if not self.show_time:
-            return default
+        clock minute or the reading-age minute changes, so both flip on time."""
         now = datetime.datetime.now()
-        to_next_minute = 60 - now.second - now.microsecond / 1_000_000 + 0.2
-        return max(0.2, min(default, to_next_minute))
+        wake = default
+        if self.show_time:
+            wake = min(wake, 60 - now.second - now.microsecond / 1_000_000)
+        age = self.reading_age_minutes()
+        if self.first_glucose_entry.glucose and age < PixelMatrix.READING_AGE_PIXELS:
+            next_age_minute = self.first_glucose_entry.date + datetime.timedelta(minutes=age + 1)
+            wake = min(wake, (next_age_minute - now).total_seconds())
+        return max(0.2, wake + 0.2) if wake < default else default
 
-    def refresh_clock_if_needed(self) -> bool:
-        """Redraw with cached data when the minute changes, so the on-screen clock
-        stays correct even when no new glucose reading arrives for a while.
+    def refresh_display_if_needed(self) -> bool:
+        """Redraw with cached data when the clock minute or the reading-age counter
+        changes, so both stay correct even when no new reading arrives for a while.
 
         Returns:
             bool: True if the display was redrawn
         """
-        if not self.show_time or self.showing_fixed_image or self.pixelMatrix is None:
+        if self.showing_fixed_image or self.pixelMatrix is None:
             return False
         if not getattr(self, "json_entries_data", None):
             return False
-        now = datetime.datetime.now()
-        if self.last_render is not None and self.last_render.replace(second=0, microsecond=0) == now.replace(second=0, microsecond=0):
+        if self.rendered_state == self._display_state():
             return False
-        logging.info("Minute changed, redrawing to keep the clock current.")
+        logging.info("Clock or reading age changed, redrawing.")
         self.update_glucose_command(stale_data=self.stale_data_displayed, fetch_data=False)
         self.run_command()
         return True
@@ -257,8 +270,6 @@ class GlucoseMatrixDisplay:
             client = self._get_matrix_client()
             if kind == "image":
                 client.set_image(value)
-            elif kind == "gif":
-                client.set_gif(value)
             elif kind == "brightness":
                 client.set_brightness(int(value))
             elif kind == "reset":
@@ -274,7 +285,7 @@ class GlucoseMatrixDisplay:
         """Set the pending display action.
 
         Args:
-            action: (kind, value) tuple; kind is image, gif, brightness or reset
+            action: (kind, value) tuple; kind is image, brightness or reset
         """
         self.display_action = action
 
@@ -302,7 +313,7 @@ class GlucoseMatrixDisplay:
                     now = datetime.datetime.now()
                     if (self.last_stale_render is not None and
                             (now - self.last_stale_render).total_seconds() < 60):
-                        self.refresh_clock_if_needed()
+                        self.refresh_display_if_needed()
                         time.sleep(self._poll_interval())
                         continue
                     logging.info("Old or missing data detected, displaying stale data.")
@@ -322,7 +333,7 @@ class GlucoseMatrixDisplay:
                     self.stale_data_displayed = False
                     self.last_stale_render = None
                 else:
-                    self.refresh_clock_if_needed()
+                    self.refresh_display_if_needed()
                 time.sleep(self._poll_interval())
             except NightscoutConnectionError as e:
                 logging.error(
@@ -471,7 +482,7 @@ class GlucoseMatrixDisplay:
         night_mode = get_nightmode()
         return night_mode != previus_nightmode
 
-    def build_pixel_matrix(self, stale_data=False) -> PixelMatrix:
+    def build_pixel_matrix(self, stale_data=False, reading_age=None) -> PixelMatrix:
         """Construct the complete pixel matrix with all data visualizations.
         
         Returns:
@@ -494,7 +505,7 @@ class GlucoseMatrixDisplay:
         
         pixelMatrix.draw_hour_indicators()
         pixelMatrix.draw_glucose_boundaries()
-        pixelMatrix.draw_basal_meter()
+        pixelMatrix.draw_reading_age(self.reading_age_minutes() if reading_age is None else reading_age)
         
         pixelMatrix.draw_iob(interpolated_iob_items)
         pixelMatrix.draw_carbs(carbs_with_x_values)

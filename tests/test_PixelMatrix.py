@@ -419,22 +419,25 @@ class TestImageGeneration:
         mock_writer.assert_called_once_with(32, 32, greyscale=False)
         mock_writer_instance.write.assert_called_once()
         
-    @patch('os.makedirs')
-    @patch('PIL.Image.open')
-    @patch('PIL.Image.fromarray')
-    def test_generate_timer_gif(self, mock_fromarray, mock_open, mock_makedirs, matrix):
-        # Mock PIL Image operations
-        mock_image = MagicMock()
-        mock_open.return_value = mock_image
-        mock_fromarray.return_value = mock_image
-        mock_image.convert.return_value = mock_image
-        mock_image.getchannel.return_value = mock_image
-        
-        # Should not crash
-        matrix.generate_timer_gif(timer_size=2)
-        
-        # Verify directory creation
-        mock_makedirs.assert_called()
+    def _age_column(self, matrix):
+        return [tuple(int(c) for c in matrix.pixels[y][0]) for y in range(PixelMatrix.READING_AGE_PIXELS)]
+
+    def test_draw_reading_age_lights_one_pixel_per_minute(self, matrix):
+        matrix.draw_reading_age(2)
+        lit = tuple(matrix.fade_color(Color.pink.rgb, 1))
+        background = tuple(matrix.fade_color(Color.white.rgb, 0.1))
+        assert self._age_column(matrix) == [lit, lit, background, background, background]
+
+    def test_draw_reading_age_fresh_reading_shows_only_background(self, matrix):
+        matrix.draw_reading_age(0)
+        background = tuple(matrix.fade_color(Color.white.rgb, 0.1))
+        assert self._age_column(matrix) == [background] * PixelMatrix.READING_AGE_PIXELS
+
+    def test_draw_reading_age_caps_at_five_minutes(self, matrix):
+        matrix.draw_reading_age(42)
+        lit = tuple(matrix.fade_color(Color.pink.rgb, 1))
+        assert self._age_column(matrix) == [lit] * PixelMatrix.READING_AGE_PIXELS
+        assert tuple(int(c) for c in matrix.pixels[PixelMatrix.READING_AGE_PIXELS][0]) == (0, 0, 0)
 
 class TestGlucoseIntervalsDrawing:
     @pytest.fixture

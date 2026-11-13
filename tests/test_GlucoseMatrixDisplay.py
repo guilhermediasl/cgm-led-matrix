@@ -183,50 +183,76 @@ class TestUtilityFunctions:
         assert isinstance(result, bool)
 
 
-class TestClockRefresh:
-    """The on-screen clock is drawn into the image, so it must be redrawn when the minute changes."""
+class TestMinuteRefresh:
+    """The clock and the reading-age counter are drawn into the image, so it must be
+    redrawn whenever either changes, even without a new reading."""
 
     @pytest.fixture
     def display(self, temp_config_file):
         display = GlucoseMatrixDisplay(temp_config_file)
-        display.show_time = True
+        display.show_time = False
         display.json_entries_data = [{"sgv": 120}]
         display.pixelMatrix = MagicMock()
+        display.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 120, datetime.now() - timedelta(seconds=90))
         display.update_glucose_command = MagicMock()
         display.run_command = MagicMock()
         return display
 
-    def test_redraws_when_minute_changed(self, display):
-        display.last_render = datetime.now() - timedelta(minutes=1)
-        assert display.refresh_clock_if_needed() is True
+    def test_reading_age_in_whole_minutes(self, display):
+        assert display.reading_age_minutes() == 1
+        display.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 120, datetime.now() - timedelta(minutes=7, seconds=5))
+        assert display.reading_age_minutes() == 7
+
+    def test_reading_age_is_zero_without_reading(self, display):
+        display.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 0, datetime.now() - timedelta(hours=1))
+        assert display.reading_age_minutes() == 0
+
+    def test_display_state_caps_age_and_ignores_clock_when_hidden(self, display):
+        display.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 120, datetime.now() - timedelta(minutes=30))
+        assert display._display_state() == (None, 5)
+        display.show_time = True
+        clock_minute, _ = display._display_state()
+        assert clock_minute == datetime.now().replace(second=0, microsecond=0)
+
+    def test_redraws_when_reading_age_changed(self, display):
+        display.rendered_state = (None, 0)  # drawn while the reading was fresh
+        assert display.refresh_display_if_needed() is True
         display.update_glucose_command.assert_called_once_with(stale_data=False, fetch_data=False)
         display.run_command.assert_called_once()
 
-    def test_keeps_stale_marker_when_redrawing(self, display):
-        display.stale_data_displayed = True
-        display.last_render = datetime.now() - timedelta(minutes=2)
-        display.refresh_clock_if_needed()
-        display.update_glucose_command.assert_called_once_with(stale_data=True, fetch_data=False)
+    def test_redraws_when_clock_minute_changed(self, display):
+        display.show_time = True
+        display.rendered_state = (datetime.now().replace(second=0, microsecond=0) - timedelta(minutes=1), 1)
+        assert display.refresh_display_if_needed() is True
 
-    def test_no_redraw_within_same_minute(self, display):
-        display.last_render = datetime.now()
-        assert display.refresh_clock_if_needed() is False
+    def test_no_redraw_when_nothing_changed(self, display):
+        display.rendered_state = display._display_state()
+        assert display.refresh_display_if_needed() is False
         display.run_command.assert_not_called()
 
-    def test_no_redraw_when_clock_hidden(self, display):
-        display.show_time = False
-        display.last_render = datetime.now() - timedelta(minutes=5)
-        assert display.refresh_clock_if_needed() is False
+    def test_keeps_stale_marker_when_redrawing(self, display):
+        display.stale_data_displayed = True
+        display.rendered_state = None
+        display.refresh_display_if_needed()
+        display.update_glucose_command.assert_called_once_with(stale_data=True, fetch_data=False)
 
     def test_no_redraw_over_fixed_image(self, display):
         display.showing_fixed_image = True  # e.g. the no-wifi image
-        display.last_render = datetime.now() - timedelta(minutes=5)
-        assert display.refresh_clock_if_needed() is False
+        display.rendered_state = None
+        assert display.refresh_display_if_needed() is False
 
-    def test_poll_wakes_right_after_minute_change(self, display):
-        fake_now = datetime(2026, 11, 12, 22, 49, 58, 500000)
-        with patch("GlucosePixelMatrix.datetime") as mock_dt:
-            mock_dt.datetime.now.return_value = fake_now
-            assert display._poll_interval() == pytest.approx(1.7)
-        display.show_time = False
+    def test_poll_wakes_when_reading_age_ticks(self, display):
+        display.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 120, datetime.now() - timedelta(seconds=58.5))
+        assert display._poll_interval() == pytest.approx(1.7, abs=0.15)
+
+    def test_poll_uses_default_once_counter_is_full_and_clock_hidden(self, display):
+        display.first_glucose_entry = GlucoseItem(EntrieEnum.SGV, 120, datetime.now() - timedelta(minutes=9))
         assert display._poll_interval() == 5.0
+
+    def test_build_draws_reading_age_instead_of_basal(self, display, monkeypatch):
+        calls = []
+        monkeypatch.setattr("PixelMatrix.PixelMatrix.draw_reading_age", lambda self, age: calls.append(age))
+        display.GLUCOSE_LOW, display.GLUCOSE_HIGH = 70, 160
+        display._set_pixels_time()
+        display.build_pixel_matrix(reading_age=3)
+        assert calls == [3]

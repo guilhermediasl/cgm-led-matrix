@@ -4,7 +4,6 @@ from typing import List
 import numpy as np
 import png
 import pytz
-from PIL import Image
 import os
 from patterns import get_digit_patterns, get_arrow_patterns, get_signal_patterns
 from util import Color, EntrieEnum, GlucoseItem, IobItem, TreatmentItem, ColorType, ExerciseItem
@@ -259,35 +258,20 @@ class PixelMatrix:
         for glucose in (self.GLUCOSE_LOW, self.GLUCOSE_HIGH):
             self.draw_horizontal_line(glucose, self.fade_color(Color.white.rgb, 0.1), 0, self.matrix_size)
 
-    def draw_basal_meter(self) -> None:
-        """Draw basal insulin meter, on the right top coner, drawning from the top
-        to the botton using the lengh the sum of all the amout of the treatments."""
-        today = datetime.now().date()
-        total_basal = sum(treatment.amount for treatment in self.formmated_basal
-                          if treatment.date.date() == today)
-        
-        pixel_representation_per_unit = 10
-        max_basal_display = 5
-        
-        # Calculate integer and fractional parts
-        basal_in_pixels = total_basal / pixel_representation_per_unit
-        integer_pixels = int(basal_in_pixels)
-        fractional_part = basal_in_pixels - integer_pixels
-        
-        integer_pixels = min(integer_pixels, max_basal_display)
-        
-        # Draw background line
-        background_color = self.fade_color(Color.white.rgb, 0.1)
-        self.draw_line_between_points(0, 0, 0, 4, background_color, self.fade_color(Color.white.rgb, 0.1))
-        
-        # Draw full integer pixels
-        if integer_pixels > 0:
-            self.draw_line_between_points(0, 0, 0, integer_pixels, Color.cyan.rgb, Color.cyan.rgb)
-        
-        # Draw fractional pixel interpolated between background and cyan
-        if fractional_part > 0 and integer_pixels < max_basal_display:
-            interpolated_color = self.interpolate_color(background_color, Color.cyan.rgb, fractional_part, 0, 1)
-            self.set_pixel(0, integer_pixels, *interpolated_color)
+    READING_AGE_PIXELS = 5
+
+    def draw_reading_age(self, age_minutes: int) -> None:
+        """Draw the age of the last reading in the top-left column, one pixel per
+        full minute from the top down, over a dim background (full after 5 min).
+
+        Args:
+            age_minutes: Whole minutes since the last glucose reading
+        """
+        lit = max(0, min(int(age_minutes), self.READING_AGE_PIXELS))
+        background = self.fade_color(Color.white.rgb, 0.1)
+        for y in range(self.READING_AGE_PIXELS):
+            color = self.fade_color(Color.pink.rgb, 1) if y < lit else background
+            self.set_pixel(0, y, *color)
 
     def draw_iob(self, iob_list: List[IobItem]) -> None:
         """Draw insulin-on-board (IOB) visualization.
@@ -594,63 +578,6 @@ class PixelMatrix:
         with open(output_file, "wb") as f:
             writer = png.Writer(self.matrix_size, self.matrix_size, greyscale=False) # type: ignore
             writer.write(f, png_matrix)
-
-    def generate_timer_gif(self, output_file=os.path.join("temp", "output_gif.gif"), timer_size=5):
-        """Generate animated GIF with timer visualization.
-        
-        Args:
-            output_file: Path for the output GIF file
-            timer_size: Number of timer frames to generate
-        """
-        frame_files = []
-        temp_dir = "temp"
-        os.makedirs(temp_dir, exist_ok=True)
-
-        # Generate base frame
-        first_frame_path = os.path.join(temp_dir, "frame-0.png")
-        
-        for index in range(0, timer_size):
-            self.set_pixel(0, index, *self.fade_color(Color.white.rgb, 0.1))
-        self.generate_image(first_frame_path)
-        frame_files.append(first_frame_path)
-
-        # Generate transparent frames with one visible pixel
-        for index in range(0, timer_size):
-            transparent_frame = np.zeros((self.matrix_size, self.matrix_size, 4), dtype=np.uint8)  # RGBA fully transparent
-            x, y = 0, index
-            r, g, b = self.fade_color(Color.pink.rgb, 1)
-            transparent_frame[y][x] = [r, g, b, 255]
-
-            frame_filename = os.path.join(temp_dir, f"frame-{index + 1}.png")
-            Image.fromarray(transparent_frame, mode="RGBA").save(frame_filename)
-            frame_files.append(frame_filename)
-
-        # Open images and convert to palette with transparency
-        frames = [Image.open(f).convert("RGBA") for f in frame_files]
-        palette_frames = []
-
-        for frame in frames:
-            alpha = frame.getchannel("A")
-            rgb_image = frame.convert("RGB").convert("P", palette=Image.ADAPTIVE, colors=255) # type: ignore
-
-            # Create transparency mask: transparent pixels will get index 255
-            transparent_index = 255
-            mask = Image.eval(alpha, lambda a: 255 if a <= 0 else 0)
-            rgb_image.paste(transparent_index, mask)
-
-            rgb_image.info["transparency"] = transparent_index
-            rgb_image.info["disposal"] = 1
-            palette_frames.append(rgb_image)
-
-        # Save the GIF
-        palette_frames[0].save(
-            output_file,
-            save_all=True,
-            append_images=palette_frames[1:],
-            duration=(30000, 60000, 60000, 60000, 60000, 60000),
-            loop=None,
-            disposal=1
-        )
 
     def glucose_to_y_coordinate(self, glucose: int) -> int:
         """Convert glucose value to Y coordinate on the matrix.

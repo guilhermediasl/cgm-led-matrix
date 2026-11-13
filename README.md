@@ -15,7 +15,8 @@ The CGM LED Matrix project is designed to display Continuous Glucose Monitoring 
 - **Visual Indicators**: Displays glucose trends, treatments (e.g., bolus, carbs), and exercise data.
 - **Night Mode**: Automatically adjusts brightness based on the time of day.
 - **Bluetooth Integration**: Communicates with LED matrix display via Bluetooth.
-- **Image and GIF Support**: Displays static images or animated GIFs on the matrix.
+- **Reading Age Counter**: The top-left column lights one pink pixel per minute since the last reading (all five after 5 minutes), so a delayed CGM is visible at a glance.
+- **Always-current Clock**: The image is redrawn whenever the clock minute or the reading age changes, even without new data.
 - **Weather Integration**: Displays weather data using WeatherAPI.
 
 ## Built With
@@ -96,7 +97,6 @@ The `config.json` file in the `led_matrix_configurator` directory contains the f
 - **Nightscout URL and Token**: For fetching glucose data.
 - **Matrix Size**: Supported sizes are 16x16 and 32x32.
 - **Brightness**: Adjusts display brightness for day and night modes.
-- **Output Type**: Choose between image or GIF output.
 - **Google Calendar**: Configure the four keys below. The app deletes its previous event before creating a new ten-minute event such as `🟡 62 ↗ -1`.
 
 ### Google Calendar Setup
@@ -137,7 +137,6 @@ The `config.json` file is used to configure the behavior of the LED matrix. Belo
 - **ip**: The Bluetooth MAC address of the LED matrix (e.g., `"E9:BA:C7:6F:AB:41"`).
 - **night_brightness**: The brightness level for nighttime (e.g., `0.1` for 10% brightness).
 - **os**: The operating system. Use `"windows"` for PC or `"linux"` for Raspberry Pi.
-- **output type**: The type of output image. Use `"gif"` for animated images.
 - **token**: The authentication token for the nightscout  API (e.g., `"api-password"`).
 - **url**: The API endpoint for glucose data (e.g., `"https://glucose.fly.dev/api/v2"`).
 
@@ -151,7 +150,6 @@ The `config.json` file is used to configure the behavior of the LED matrix. Belo
     "ip": "E9:BA:C7:6F:AB:41",
     "night_brightness": 0.1,
     "os": "windows",
-    "output type": "gif",
     "token": "api-password",
     "url": "https://glucose.fly.dev/api/v2"
 }

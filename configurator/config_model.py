@@ -6,7 +6,9 @@ class ConfigModel(BaseModel):
     token: str = Field(..., description="Nightscout API token")
     url: HttpUrl = Field(..., description="Nightscout base URL")
     ip: Optional[str] = Field(None, description="IP or MAC address of the iDot device")
-    output_type: str = Field("gif", alias="output type")
+    # Deprecated: GIF output was removed and the display always gets an image.
+    # Still accepted so existing config files keep validating; ignored by the app.
+    output_type: Optional[str] = Field(None, alias="output type")
     image_out: str = Field("pc", alias="image out")
     os: str = Field("windows")
     show_time: bool = Field(False)

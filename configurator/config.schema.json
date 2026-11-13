@@ -9,8 +9,8 @@
     "url": { "type": "string", "format": "uri", "description": "Nightscout base URL" },
     "output type": {
       "type": "string",
-      "enum": ["gif", "image"],
-      "description": "Use 'gif' for animated output or 'image' for single image"
+      "deprecated": true,
+      "description": "Deprecated and ignored: the display always receives an image. Kept so older configs still validate."
     },
     "image out": {
       "type": "string",
@@ -40,5 +40,5 @@
     "google_calendar_credentials": { "type": "string", "description": "OAuth client credentials JSON path" },
     "google_calendar_token": { "type": "string", "description": "OAuth token JSON path" }
   },
-  "required": ["token", "url", "output type"]
+  "required": ["token", "url"]
 }

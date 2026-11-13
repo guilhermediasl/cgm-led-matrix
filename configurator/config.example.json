@@ -2,7 +2,6 @@
   "token": "your-nightscout-token",
   "url": "https://your-nightscout-url/api/v2",
   "ip": "XX:XX:XX:XX:XX:XX",
-  "output type": "gif",
   "image out": "pc",
   "os": "windows",
   "show_time": true,
