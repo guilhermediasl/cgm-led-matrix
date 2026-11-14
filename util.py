@@ -1,7 +1,39 @@
+import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import NamedTuple
+from typing import NamedTuple, Optional, Union
+
+_FRACTION = re.compile(r"\.(\d+)")
+
+
+def utc_to_local(value: Union[str, int, float]) -> datetime:
+    """Convert a Nightscout timestamp to a naive datetime in the machine's local time.
+
+    Accepts epoch milliseconds (the `date` field) or an ISO 8601 string such as
+    `2024-05-01T12:00:00.000Z`, with or without fractional seconds or an offset.
+    Strings without an offset are taken as UTC, which is what Nightscout stores.
+    """
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value / 1000)
+    text = value.strip()
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    # Older Pythons only parse exactly 6 fractional digits.
+    text = _FRACTION.sub(lambda m: "." + m.group(1)[:6].ljust(6, "0"), text, count=1)
+    parsed = datetime.fromisoformat(text)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone().replace(tzinfo=None)
+
+
+def entry_local_time(item: dict) -> Optional[datetime]:
+    """Local time of a Nightscout entry, preferring the unambiguous epoch `date`."""
+    if isinstance(item.get("date"), (int, float)):
+        return utc_to_local(item["date"])
+    if item.get("dateString"):
+        return utc_to_local(item["dateString"])
+    return None
 
 class TreatmentEnum(Enum):
     """Enumeration for different types of diabetes treatments."""

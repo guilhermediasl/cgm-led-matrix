@@ -8,15 +8,34 @@ import logging
 from logging.handlers import RotatingFileHandler
 from typing import List
 from http.client import RemoteDisconnected
-from util import GlucoseItem, IobItem, TreatmentItem, ExerciseItem, TreatmentEnum, EntrieEnum
+from util import GlucoseItem, IobItem, TreatmentItem, ExerciseItem, TreatmentEnum, EntrieEnum, utc_to_local, entry_local_time
 from PixelMatrix import PixelMatrix
 import bisect
 from google_calendar import GoogleCalendarSync
+
+class SecretRedactingFilter(logging.Filter):
+    """Replace known secrets (the Nightscout token) in every log line, including
+    request URLs that `requests` embeds in its exception messages."""
+
+    def __init__(self):
+        super().__init__()
+        self.secrets: set[str] = set()
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if self.secrets:
+            message = record.getMessage()
+            for secret in self.secrets:
+                message = message.replace(secret, "***")
+            record.msg, record.args = message, None
+        return True
+
 
 log_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 log_file = 'app.log'
 handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5)
 handler.setFormatter(log_formatter)
+secret_filter = SecretRedactingFilter()
+handler.addFilter(secret_filter)
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -56,7 +75,6 @@ class GlucoseMatrixDisplay:
         self.max_glucose = max_glucose
         self.PIXEL_INTERVAL = 5
         self.RUN_COMMAND_MAX_COUNT = 600
-        self.max_time = self.PIXEL_INTERVAL * 60 * 1000 * self.matrix_size #milliseconds
         self.config_path = os.path.abspath(config_path)
         self.config = self.load_config(config_path)
         self.arrow = ''
@@ -112,15 +130,22 @@ class GlucoseMatrixDisplay:
         """Extract and set configuration values from loaded config."""
         self.ip = self.config.get('ip')
         token = self.config.get('token')
-        self.url_entries = f"{self.config.get('url')}/entries.json?token={token}&count=150"
-        self.url_treatments = f"{self.config.get('url')}/treatments.json?token={token}&count=10"
-        self.url_ping_entries = f"{self.config.get('url')}/entries.json?token={token}&count=1"
-        self.url_iob = f"{self.config.get('url')}/properties/iob?token={token}"
-        self.GLUCOSE_LOW = self.config.get('low boundary glucose')
-        self.GLUCOSE_HIGH = self.config.get('high boundary glucose')
+        if token:
+            secret_filter.secrets.add(str(token))
+        base_url = str(self.config.get('url') or '').rstrip('/')
+        self.url_entries = f"{base_url}/entries.json?token={token}&count=150"
+        self.url_treatments = f"{base_url}/treatments.json?token={token}&count=10"
+        self.url_ping_entries = f"{base_url}/entries.json?token={token}&count=1"
+        self.url_iob = f"{base_url}/properties/iob?token={token}"
+        # "bondary" is the misspelling older READMEs and configs used.
+        self.GLUCOSE_LOW = self.config.get('low boundary glucose', self.config.get('low bondary glucose')) or 70
+        self.GLUCOSE_HIGH = self.config.get('high boundary glucose', self.config.get('high bondary glucose')) or 160
         self.os = self.config.get('os', 'linux').lower()
         self.image_out = self.config.get('image out', 'led matrix')
-        self.night_brightness = self.config.get('night_brightness')
+        self.night_brightness = self.normalize_brightness(self.config.get('night_brightness'))
+        # Age of the newest reading after which the display marks the data as stale.
+        self.stale_minutes = self.config.get('stale_minutes', 15)
+        self.max_time = self.stale_minutes * 60 * 1000  # milliseconds
         self.PLOT_GLUCOSE_INTERVALS: bool = self.config.get('plot glucose intervals', True)
         
         # Add time configuration
@@ -132,6 +157,24 @@ class GlucoseMatrixDisplay:
         self.google_calendar_id = self.config.get('google_calendar_id', 'primary')
         self.google_calendar_credentials = self.config.get('google_calendar_credentials', 'credentials.json')
         self.google_calendar_token = self.config.get('google_calendar_token', 'calendar_token.json')
+
+    MIN_BRIGHTNESS = 5  # the display rejects anything below 5%
+    DEFAULT_NIGHT_BRIGHTNESS = 10
+
+    @classmethod
+    def normalize_brightness(cls, value) -> int:
+        """Night brightness as a percent the display accepts (5-100).
+
+        Older configs stored a fraction (0.1 for 10%); values below 1 are read
+        that way. A missing or invalid value falls back to 10%.
+        """
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return cls.DEFAULT_NIGHT_BRIGHTNESS
+        if 0 < value < 1:
+            value *= 100
+        return max(cls.MIN_BRIGHTNESS, min(100, round(value)))
 
     def _setup_paths(self):
         """Initialize file paths for images and outputs."""
@@ -152,8 +195,8 @@ class GlucoseMatrixDisplay:
             calendar_id=self.google_calendar_id,
             credentials_path=project_path(self.google_calendar_credentials),
             token_path=project_path(self.google_calendar_token),
-            low_boundary=self.GLUCOSE_LOW or 70,
-            high_boundary=self.GLUCOSE_HIGH or 160,
+            low_boundary=self.GLUCOSE_LOW,
+            high_boundary=self.GLUCOSE_HIGH,
         )
 
     def sync_google_calendar(self) -> None:
@@ -296,7 +339,8 @@ class GlucoseMatrixDisplay:
         
         while True:
             try:
-                ping_json = self.fetch_json_data(self.url_ping_entries)[0]
+                ping_entries = self.fetch_json_data(self.url_ping_entries)
+                ping_json = ping_entries[0] if ping_entries else None
                 time_since_last_communication = (datetime.datetime.now() - last_communication).total_seconds()
                 logging.debug(f"Time since last communication: {time_since_last_communication:.2f} seconds")
                 
@@ -319,7 +363,10 @@ class GlucoseMatrixDisplay:
                     logging.info("Old or missing data detected, displaying stale data.")
                     self.update_glucose_command(stale_data=True)
                     self.run_command()
-                    self.sync_google_calendar()
+                    # Re-rendered every minute while stale; the calendar only needs
+                    # the first one, as the reading itself has not changed.
+                    if not self.stale_data_displayed:
+                        self.sync_google_calendar()
                     self.stale_data_displayed = True
                     self.last_stale_render = now
 
@@ -451,7 +498,7 @@ class GlucoseMatrixDisplay:
             else:
                 logging.error(f"Max retries ({retries}) reached. Returning control to the display loop.")
                 if isinstance(last_error, (RemoteDisconnected, requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-                    raise NightscoutConnectionError(f"Unable to reach {url}") from last_error
+                    raise NightscoutConnectionError(f"Unable to reach {safe_url}") from last_error
                 raise last_error
 
     def set_arrow(self):
@@ -591,9 +638,10 @@ class GlucoseMatrixDisplay:
         """Convert JSON entries data to GlucoseItem objects.
         """
         for item in self.json_entries_data:
-            treatment_date = datetime.datetime.strptime(item.get("dateString"), "%Y-%m-%dT%H:%M:%S.%fZ")
-            treatment_date += datetime.timedelta(minutes= -180)
-            if treatment_date < datetime.datetime.now() - datetime.timedelta(minutes= self.matrix_size * self.PIXEL_INTERVAL + self.PIXEL_INTERVAL / 2):
+            treatment_date = entry_local_time(item)
+            if treatment_date is None:
+                continue
+            if treatment_date <datetime.datetime.now() - datetime.timedelta(minutes= self.matrix_size * self.PIXEL_INTERVAL + self.PIXEL_INTERVAL / 2):
                 break
             if item.get("type") == EntrieEnum.SGV:
                 self.formatted_entries.append(GlucoseItem(EntrieEnum.SGV,
@@ -608,9 +656,11 @@ class GlucoseMatrixDisplay:
     def generate_list_from_treatments_json(self):
         """Convert JSON treatments data to TreatmentItem and ExerciseItem objects."""
         for item in self.json_treatments_data:
-            time = datetime.datetime.strptime(item.get("created_at"), "%Y-%m-%dT%H:%M:%S.%fZ") + datetime.timedelta(minutes=item.get('utcOffset', 0))
-            if 'xDrip4iOS' in item.get("enteredBy"): 
-                time += datetime.timedelta(minutes= -180)
+            if not item.get("created_at"):
+                continue
+            # created_at is UTC for every uploader, so converting it to the machine's
+            # local time replaces the old utcOffset / xDrip4iOS special cases.
+            time = utc_to_local(item["created_at"])
             if item.get("eventType") == TreatmentEnum.CARBS.value:
                 if not item.get("carbs"):
                     continue

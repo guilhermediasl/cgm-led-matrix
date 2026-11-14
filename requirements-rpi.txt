@@ -7,3 +7,7 @@ google-api-python-client>=2.150.0
 google-auth-httplib2>=0.2.0
 google-auth-oauthlib>=1.2.1
 idotmatrix @ git+https://github.com/guilhermediasl/python3-idotmatrix-library@v0.1.0
+# Web configurator (configurator/configurator.py)
+Flask>=3.0
+pydantic>=2.5,<3
+jsonschema>=4.20

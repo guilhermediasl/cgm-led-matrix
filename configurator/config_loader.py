@@ -19,7 +19,6 @@ def load_config() -> ConfigModel:
     with open(path, 'r', encoding='utf-8') as f:
         raw = json.load(f)
 
-    # Pydantic will validate types and provide defaults
-    # Use by_field_name to allow aliases like 'output type'
-    cfg = ConfigModel.parse_obj(raw)
+    # Pydantic validates types and fills defaults; aliases cover keys like 'image out'
+    cfg = ConfigModel.model_validate(raw)
     return cfg

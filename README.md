@@ -17,13 +17,13 @@ The CGM LED Matrix project is designed to display Continuous Glucose Monitoring 
 - **Bluetooth Integration**: Communicates with LED matrix display via Bluetooth.
 - **Reading Age Counter**: The top-left column lights one pink pixel per minute since the last reading (all five after 5 minutes), so a delayed CGM is visible at a glance.
 - **Always-current Clock**: The image is redrawn whenever the clock minute or the reading age changes, even without new data.
-- **Weather Integration**: Displays weather data using WeatherAPI.
+- **Web Configurator**: A small Flask page (`configurator/configurator.py`) to edit the config, read logs and restart the service.
 
 ## Built With
 
 - **Python 3**: Core programming language.
 - **[iDotMatrix Library (maintained fork)](https://github.com/guilhermediasl/python3-idotmatrix-library)**: Bluetooth communication with the display over a single persistent connection.
-- **PyQt5**: GUI for configuring and controlling the displays.
+- **Flask + Pydantic**: Web configurator that validates and saves `config.json`.
 
 ## Installation
 
@@ -32,6 +32,7 @@ The CGM LED Matrix project is designed to display Continuous Glucose Monitoring 
 - Python 3.8 or higher
 - Pip (Python package manager) and Git (the display library is installed from GitHub)
 - Nightscout instance with API token
+- The machine's time zone set to your local time zone (Nightscout timestamps are UTC and are converted to local time; on a Pi use `sudo raspi-config` or `timedatectl set-timezone`)
 
 ### Steps
 
@@ -53,10 +54,10 @@ The CGM LED Matrix project is designed to display Continuous Glucose Monitoring 
    pip install -r requirements.txt
    ```
 
-   On a headless Raspberry Pi, install `requirements-rpi.txt` instead. It excludes the PyQt GUI and other desktop-only packages.
+   On a headless Raspberry Pi, install `requirements-rpi.txt` instead. It has only what the display and the web configurator need. Test dependencies are in `tests/test_requirements.txt`.
 4. Configure the project:
 
-   - Copy the `config.json` template from `led_matrix_configurator` and update it with your Nightscout URL, token, and other settings.
+   - Copy `configurator/config.example.json` to `configurator/config.json` and fill in your Nightscout URL, token, and other settings (the web configurator creates it for you on first run).
 5. Run the application:
 
    ```bash
@@ -92,74 +93,112 @@ The `GlucosePixelMatrix.py` script fetches glucose data from Nightscout and upda
 
 ## Configuration
 
-The `config.json` file in the `led_matrix_configurator` directory contains the following settings:
+All settings live in `configurator/config.json`. The display app reads it **once at startup**, so restart the service after every change. You can edit the file by hand or use the web configurator.
 
-- **Nightscout URL and Token**: For fetching glucose data.
-- **Matrix Size**: Supported sizes are 16x16 and 32x32.
-- **Brightness**: Adjusts display brightness for day and night modes.
-- **Google Calendar**: Configure the four keys below. The app deletes its previous event before creating a new ten-minute event such as `🟡 62 ↗ -1`.
+### Web configurator
 
-### Google Calendar Setup
+A small web page to edit the settings, see what the display is showing and follow the logs, from any phone or computer on your network.
+
+```bash
+python configurator/configurator.py
+```
+
+Then open `http://<pi-address>:5000` (for example `http://raspberrypi.local:5000`). The page offers:
+
+- **Settings grouped by topic** (Nightscout, Display, Glucose range, Clock, Night mode & alerts, Google Calendar), with an explanation under every field, inline validation and a bar that tracks unsaved changes (<kbd>Ctrl</kbd>+<kbd>S</kbd> saves).
+- **Live preview** of the last frame sent to the matrix (`temp/output_image.png`), refreshed every 20 seconds, with a legend explaining each element.
+- **Display service controls**: restart the service to apply new settings, pull the latest code, or update and restart in one step.
+- **Logs** of the display app, with a warnings & errors filter. The Nightscout token is never sent to the page or shown in the logs.
+
+Restarting uses `sudo systemctl restart glucose_matrix.service`, so the user running the configurator needs passwordless sudo for that command (the default `pi` user has it). On Windows the restart button is disabled; restart `GlucosePixelMatrix.py` yourself.
+
+> **Security:** the configurator has no login and listens on all interfaces. Run it only on a trusted home network and do not expose port 5000 to the internet.
+
+To start it on boot, add a second unit, for example `/etc/systemd/system/glucose_configurator.service`:
+
+```ini
+[Unit]
+Description=CGM LED Matrix configurator
+After=network-online.target
+
+[Service]
+ExecStart=/home/pi/cgm-led-matrix/.venv/bin/python /home/pi/cgm-led-matrix/configurator/configurator.py
+WorkingDirectory=/home/pi/cgm-led-matrix
+User=pi
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+To check a config file without the page, run `python configurator/validate_config.py [path/to/config.json]`.
+
+### Settings reference
+
+`configurator/config.schema.json` is the source of truth: it holds the type, limits and description of every key, and the web configurator is built from it.
+
+| Key | Default | What it does |
+| --- | --- | --- |
+| `url` | (required) | Nightscout site followed by `/api/v2`, e.g. `https://my-site.herokuapp.com/api/v2`. |
+| `token` | (required) | Nightscout access token with read access (Admin Tools → Subjects), e.g. `readable-1a2b3c4d5e6f`. |
+| `image out` | `"led matrix"` | `"led matrix"` sends frames over Bluetooth; `"pc"` only writes `temp/output_image.png`. |
+| `ip` | `""` | Bluetooth MAC address of the panel, e.g. `E9:BA:C7:6F:AB:41`. See below for how to find it. |
+| `os` | `"linux"` | `"linux"` makes the app run `rfkill unblock bluetooth` at startup. |
+| `plot glucose intervals` | `true` | Draw faint lines between consecutive readings. |
+| `low boundary glucose` | `70` | Low limit in mg/dL: yellow at or below it, red below it minus 10. |
+| `high boundary glucose` | `160` | High limit in mg/dL: yellow at or above it, red above it plus 10. |
+| `show_time` | `false` | Draw the clock. It is always drawn while the data is stale. |
+| `time_format` | `"24h"` | `24h`, `12h`, `compact` (1405), `HH:MM`, `HH:MM:SS` or `MM:SS`. |
+| `time_position` | `"top-right"` | `top-left`, `top-right`, `bottom-left`, `bottom-right` or `bottom`. |
+| `night_brightness` | `10` | Brightness in percent (5–100) from 22:00 to 06:59; daytime is 100%. A fraction such as `0.1` is read as 10%. |
+| `stale_minutes` | `15` | Minutes without a new reading before the stale mark appears. |
+| `google_calendar_enabled` | `false` | Keep one ten-minute event with the current reading in Google Calendar. |
+| `google_calendar_id` | `"primary"` | Calendar name (e.g. `cgm`) or `primary`. |
+| `google_calendar_credentials` | `"credentials.json"` | OAuth Desktop-app client JSON. Do not commit it. |
+| `google_calendar_token` | `"calendar_token.json"` | Where the authorization is stored. Created on first login. Do not commit it. |
+
+`PIXEL_INTERVAL`, `time_color_fade` and `output type` are accepted for older configs but not used.
+
+### Example configuration
+
+```json
+{
+    "url": "https://my-site.herokuapp.com/api/v2",
+    "token": "readable-1a2b3c4d5e6f",
+    "image out": "led matrix",
+    "ip": "E9:BA:C7:6F:AB:41",
+    "os": "linux",
+    "low boundary glucose": 70,
+    "high boundary glucose": 160,
+    "show_time": true,
+    "time_format": "24h",
+    "time_position": "bottom-left",
+    "night_brightness": 10,
+    "stale_minutes": 15
+}
+```
+
+### Finding the display address
+
+Scan for displays (their names start with `IDM-`) and copy the MAC address into `ip`:
+
+```bash
+python -c "import asyncio; from idotmatrix import ConnectionManager; print(asyncio.run(ConnectionManager.scan()))"
+```
+
+### Google Calendar setup
+
+The app keeps a single ten-minute event such as `🟡 62 ↗ -1`, deleting the previous one before creating the next.
 
 1. In Google Cloud Console, create or select a project.
 2. Enable **Google Calendar API**.
 3. Configure the OAuth consent screen. For personal use, add your Google account as a test user if Google requests it.
 4. Create OAuth credentials with application type **Desktop app**.
-5. Create a calendar named `cgm` in Google Calendar.
-6. Download the JSON file and save it in the project root with the name configured by `google_calendar_credentials` (normally `credentials.json`).
-7. Fill the Calendar settings as follows:
+5. Create a dedicated calendar named `cgm` in Google Calendar (its events are replaced on every reading).
+6. Download the JSON file and save it in the project root as `credentials.json` (or the name set in `google_calendar_credentials`).
+7. Turn on **Sync the reading to Google Calendar** in the configurator (or set `google_calendar_enabled` to `true`) and set the calendar to `cgm`.
 
-```json
-{
-   "google_calendar_enabled": true,
-   "google_calendar_id": "cgm",
-   "google_calendar_credentials": "credentials.json",
-   "google_calendar_token": "calendar_token.json"
-}
-```
-
-- `google_calendar_enabled`: use `true` to synchronize events or `false` to disable synchronization.
-- `google_calendar_id`: use the calendar name, such as `cgm`. The app finds the calendar by name. `primary` can still be used for the main calendar.
-- `google_calendar_credentials`: path to the OAuth Desktop app JSON downloaded from Google Cloud. Do not commit this file.
-- `google_calendar_token`: path where the app stores the authorization token. It is created automatically after the first login. Do not commit this file.
-
-Run `python GlucosePixelMatrix.py` once with synchronization enabled. A browser window will open for authorization. The app then creates one event lasting ten minutes and replaces it on the next update.
-
-# CGM LED Matrix
-
-## Configuration File
-
-The `config.json` file is used to configure the behavior of the LED matrix. Below is a description of each field:
-
-- **high bondary glucose**: The upper glucose level threshold (e.g., 160).
-- **low bondary glucose**: The lower glucose level threshold (e.g., 70).
-- **image out**: The output device for the image. Use `"pc"` for testing on a computer or `"led_matrix"` for the LED matrix.
-- **ip**: The Bluetooth MAC address of the LED matrix (e.g., `"E9:BA:C7:6F:AB:41"`).
-- **night_brightness**: The brightness level for nighttime (e.g., `0.1` for 10% brightness).
-- **os**: The operating system. Use `"windows"` for PC or `"linux"` for Raspberry Pi.
-- **token**: The authentication token for the nightscout  API (e.g., `"api-password"`).
-- **url**: The API endpoint for glucose data (e.g., `"https://glucose.fly.dev/api/v2"`).
-
-### Example Configuration
-
-```json
-{
-    "high bondary glucose": 160,
-    "low bondary glucose": 70,
-    "image out": "pc",
-    "ip": "E9:BA:C7:6F:AB:41",
-    "night_brightness": 0.1,
-    "os": "windows",
-    "token": "api-password",
-    "url": "https://glucose.fly.dev/api/v2"
-}
-```
-
-Ensure the `ip` field matches the Bluetooth MAC address of your LED matrix. To find it, scan for displays (their names start with `IDM-`):
-
-```bash
-python -c "import asyncio; from idotmatrix import ConnectionManager; print(asyncio.run(ConnectionManager.scan()))"
-```
+Run `python GlucosePixelMatrix.py` once with synchronization enabled. A browser window opens for authorization and the token file is saved. On a headless Pi, authorize once on a computer and copy the token file to the Pi.
 
 ## Hardware Setup
 

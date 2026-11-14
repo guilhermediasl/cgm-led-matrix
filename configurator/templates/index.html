@@ -1,358 +1,1114 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Config Interface</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
-            background-color: #282a36;
-            color: #f8f8f2;
-        }
-        header {
-            background-color: #44475a;
-            color: #f8f8f2;
-            padding: 1em 0;
-            text-align: center;
-        }
-        main {
-            padding: 1.5em;
-            max-width: 800px;
-            margin: 0 auto;
-            background: #44475a;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-        }
-        .config-item {
-            display: flex;
-            flex-direction: column;
-            margin-bottom: 1em;
-        }
-        .config-item label {
-            margin-bottom: 0.5em;
-            color: #50fa7b; /* Dracula green */
-            font-weight: bold;
-        }
-        .config-item input {
-            padding: 0.5em;
-            border: 1px solid #6272a4;
-            border-radius: 4px;
-            background: #282a36;
-            color: #f8f8f2;
-        }
-        /* Dracula-style checkbox */
-        input[type="checkbox"] {
-            /* hide default checkbox appearance for consistent styling */
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 4px;
-            border: 2px solid #6272a4;
-            background: #282a36;
-            display: inline-block;
-            vertical-align: middle;
-            margin-right: 8px;
-            position: relative;
-            cursor: pointer;
-        }
-        input[type="checkbox"]:checked {
-            background: linear-gradient(180deg, #50fa7b 0%, #2ebd52 100%);
-            border-color: #50fa7b;
-        }
-        input[type="checkbox"]:checked::after {
-            content: '\2713'; /* checkmark */
-            color: #0b0b0b;
-            font-weight: bold;
-            position: absolute;
-            left: 3px;
-            top: -2px;
-            font-size: 16px;
-        }
-        label.checkbox-label { display: inline-flex; align-items: center; gap: 6px; }
-        button {
-            display: inline-block;
-            background: #34b153;
-            color: #282a36;
-            padding: 0.5em 1em;
-            font-size: 1rem;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background: #185225;
-        }
-        section {
-            margin-bottom: 2em;
-        }
-        h1, h2 {
-            text-align: center;
-        }
-        .button-group {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-        }
-        pre {
-            background: #282a36;
-            color: #f8f8f2;
-            padding: 1em;
-            border-radius: 4px;
-            border: 1px solid #6272a4;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>CGM LED Matrix · Configurator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 4'%3E%3Crect width='4' height='4' rx='.6' fill='%23111'/%3E%3Crect x='.5' y='2' width='1' height='1' fill='%2346c46e'/%3E%3Crect x='1.5' y='1.5' width='1' height='1' fill='%2346c46e'/%3E%3Crect x='2.5' y='1' width='1' height='1' fill='%23f2b33d'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f5f6f4;
+    --surface: #ffffff;
+    --surface-2: #f0f2ef;
+    --border: #dfe3dc;
+    --border-strong: #c6ccc2;
+    --text: #1b1f1c;
+    --muted: #5d665f;
+    --faint: #8a938b;
+    --accent: #1f8a4c;
+    --accent-strong: #176b3a;
+    --accent-soft: #e3f3e8;
+    --on-accent: #ffffff;
+    --warn: #a86400;
+    --warn-soft: #fff3dc;
+    --danger: #c0352b;
+    --danger-soft: #fde8e6;
+    --info: #2c63b8;
+    --zone-red: #e0473c;
+    --zone-yellow: #f2b33d;
+    --zone-green: #46c46e;
+    --shadow: 0 1px 2px rgba(20, 30, 20, .06), 0 4px 16px rgba(20, 30, 20, .05);
+    --shadow-pop: 0 8px 30px rgba(10, 20, 10, .18);
+    --radius: 14px;
+    --radius-sm: 9px;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1311;
+      --surface: #171c19;
+      --surface-2: #1e2420;
+      --border: #2a322d;
+      --border-strong: #3a443e;
+      --text: #e8ede9;
+      --muted: #a3ada6;
+      --faint: #6f7a72;
+      --accent: #46c46e;
+      --accent-strong: #63d987;
+      --accent-soft: #1b3324;
+      --on-accent: #08140c;
+      --warn: #f2b33d;
+      --warn-soft: #33270f;
+      --danger: #ff7b70;
+      --danger-soft: #3a1a17;
+      --info: #7fb0ff;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4);
+      --shadow-pop: 0 10px 40px rgba(0, 0, 0, .55);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  svg:not([width]) { width: 1em; height: 1em; flex: none; }
+  .inline-btn svg { width: 17px; height: 17px; }
+  .error-text svg { width: 14px; height: 14px; }
+  a { color: var(--accent); }
+  code, kbd { font-family: var(--mono); font-size: .86em; background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: 0 .3em; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: saturate(1.4) blur(10px);
+    -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner { max-width: 1180px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 14px; }
+  .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+  .brand-mark { width: 34px; height: 34px; flex: none; border-radius: 9px; background: #111; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 5px; }
+  .brand-mark i { border-radius: 1.5px; background: #262626; }
+  .brand-mark i.g { background: var(--zone-green); }
+  .brand-mark i.y { background: var(--zone-yellow); }
+  .brand h1 { font-size: 16px; line-height: 1.2; margin: 0; letter-spacing: -.01em; white-space: nowrap; }
+  .brand p { margin: 0; font-size: 12.5px; color: var(--muted); }
+  .topbar .spacer { flex: 1; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+  .chip[data-state="active"] .dot { background: var(--zone-green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--zone-green) 25%, transparent); }
+  .chip[data-state="failed"] .dot, .chip[data-state="inactive"] .dot { background: var(--zone-red); }
+  .chip[data-state="activating"] .dot, .chip[data-state="deactivating"] .dot { background: var(--zone-yellow); }
+
+  /* ---------- Layout ---------- */
+  .layout { max-width: 1180px; margin: 0 auto; padding: 20px 16px 120px; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+  .layout > * { min-width: 0; }
+  .aside { position: sticky; top: 76px; display: grid; gap: 16px; }
+  @media (max-width: 620px) { .panel { max-width: 300px; margin: 0 auto; } .topbar .chip { max-width: 46vw; overflow: hidden; text-overflow: ellipsis; } }
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+    /* Preview above the settings, service controls below them. */
+    .aside { display: contents; }
+    .aside > :first-child { order: -1; }
+    .aside > :last-child { order: 1; }
+  }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .card-head { display: flex; gap: 12px; align-items: flex-start; padding: 18px 20px 0; }
+  .card-head .icon { width: 36px; height: 36px; flex: none; border-radius: 10px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+  .card-head h2, .card-head h3 { margin: 0; font-size: 16px; letter-spacing: -.01em; }
+  .card-head p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
+  .card-body { padding: 16px 20px 20px; }
+  .icon svg { width: 19px; height: 19px; }
+
+  /* ---------- Section nav ---------- */
+  .section-nav { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 14px; scrollbar-width: none; }
+  .section-nav::-webkit-scrollbar { display: none; }
+  .section-nav a { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 13.5px; color: var(--muted); text-decoration: none; border: 1px solid transparent; }
+  .section-nav a:hover { background: var(--surface); border-color: var(--border); color: var(--text); }
+  .section-nav a.current { background: var(--surface); border-color: var(--border-strong); color: var(--text); font-weight: 600; }
+  .section-nav a .badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; display: inline-grid; place-items: center; background: var(--danger); color: #fff; font-weight: 700; }
+
+  .groups { display: grid; gap: 16px; }
+
+  /* ---------- Fields ---------- */
+  .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 18px; }
+  @media (max-width: 620px) { .fields { grid-template-columns: 1fr; } }
+  .field { display: grid; gap: 6px; align-content: start; min-width: 0; }
+  .field.wide { grid-column: 1 / -1; }
+  .field > label, .field .label { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 7px; }
+  .modified-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--info); display: none; }
+  .field.is-modified .modified-dot { display: inline-block; }
+  .help { color: var(--muted); font-size: 13px; margin: 0; overflow-wrap: anywhere; }
+  .help code { white-space: normal; word-break: break-all; }
+  .error-text { color: var(--danger); font-size: 13px; font-weight: 500; display: none; align-items: center; gap: 5px; }
+  .field.has-error .error-text { display: flex; }
+
+  .control { display: flex; align-items: stretch; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); transition: border-color .15s, box-shadow .15s; min-height: 40px; }
+  .control:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+  .field.has-error .control { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 15%, transparent); }
+  .control input, .control select { flex: 1; min-width: 0; border: 0; background: transparent; padding: 8px 12px; outline: none; }
+  .control select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 34px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+  .control select option { background: var(--surface); color: var(--text); }
+  .control .suffix { display: flex; align-items: center; padding: 0 12px; color: var(--muted); font-size: 13px; border-left: 1px solid var(--border); background: var(--surface-2); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+  .control .inline-btn { border: 0; border-left: 1px solid var(--border); background: transparent; padding: 0 12px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+  .control .inline-btn:hover { color: var(--text); background: var(--surface-2); }
+  .control input[type="number"]::-webkit-inner-spin-button { opacity: .5; }
+  .saved-note { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--accent); font-weight: 600; background: var(--accent-soft); border-radius: 999px; padding: 1px 8px; }
+
+  /* Switch row */
+  .switch-row { display: flex; gap: 14px; align-items: flex-start; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); cursor: pointer; }
+  .switch-row .text { display: grid; gap: 2px; }
+  .switch-row .text strong { font-size: 14px; display: flex; align-items: center; gap: 7px; }
+  .switch { position: relative; flex: none; width: 42px; height: 24px; margin-top: 1px; }
+  .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+  .switch span { position: absolute; inset: 0; border-radius: 999px; background: var(--border-strong); transition: background .18s; pointer-events: none; }
+  .switch span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .18s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(18px); }
+  .switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Segmented */
+  .segmented { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 11px; background: var(--surface-2); border: 1px solid var(--border); }
+  .segmented label { position: relative; }
+  .segmented input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .segmented span { display: block; padding: 6px 14px; border-radius: 8px; font-size: 13.5px; color: var(--muted); cursor: pointer; }
+  .segmented input:checked + span { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .segmented input:focus-visible + span { outline: 2px solid var(--accent); }
+
+  /* Range */
+  .range { display: flex; align-items: center; gap: 14px; }
+  .range input[type="range"] { flex: 1; accent-color: var(--accent); height: 28px; }
+  .range .control { width: 110px; flex: none; }
+
+  /* Glucose range visual */
+  .zones { grid-column: 1 / -1; display: grid; gap: 6px; }
+  .zones-bar { position: relative; height: 14px; border-radius: 999px; overflow: hidden; display: flex; }
+  .zones-bar div { height: 100%; transition: flex-basis .2s; }
+  .zones-scale { position: relative; height: 18px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .zones-scale span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .zones-scale span.edge { font-weight: 700; color: var(--text); }
+  .zones-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--muted); }
+  .zones-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+  /* ---------- Buttons ---------- */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; padding: 0 15px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-weight: 600; font-size: 14px; cursor: pointer; transition: background .15s, border-color .15s, transform .05s; white-space: nowrap; }
+  .btn:hover { background: var(--surface-2); }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+  .btn.ghost:hover { background: var(--surface-2); color: var(--text); }
+  .btn.danger { color: var(--danger); }
+  .btn.sm { height: 32px; padding: 0 11px; font-size: 13px; border-radius: 8px; }
+  .btn svg { width: 16px; height: 16px; flex: none; }
+  .btn.block { width: 100%; }
+  .btn .spinner { display: none; }
+  .btn.loading .spinner { display: inline-block; }
+  .btn.loading svg:not(.spinner) { display: none; }
+  .spinner { width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- Preview ---------- */
+  .panel { position: relative; aspect-ratio: 1; border-radius: 12px; background: #050505; padding: 10px; box-shadow: inset 0 0 0 1px #222, 0 6px 20px rgba(0,0,0,.25); }
+  .panel-screen { position: relative; width: 100%; height: 100%; border-radius: 3px; overflow: hidden; background: #000; }
+  .panel-screen img { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+  .panel-screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(circle at center, transparent 58%, rgba(0,0,0,.62) 64%); background-size: calc(100% / 32) calc(100% / 32); }
+  .panel-empty { position: absolute; inset: 10px; display: grid; place-items: center; text-align: center; color: #8a8a8a; font-size: 13px; padding: 24px; }
+  .preview-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .preview-meta.old { color: var(--warn); }
+
+  .legend { display: grid; gap: 6px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+  .legend summary { cursor: pointer; font-weight: 600; color: var(--text); font-size: 13px; }
+  .legend ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+  .legend li { display: flex; gap: 8px; align-items: baseline; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; flex: none; transform: translateY(1px); }
+
+  .callout { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--text); font-size: 13.5px; border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+  .callout svg { width: 18px; height: 18px; color: var(--warn); flex: none; margin-top: 1px; }
+  .service-actions { display: grid; gap: 8px; margin-top: 14px; }
+  .service-actions .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .output { margin-top: 10px; max-height: 180px; overflow: auto; font: 12px/1.5 var(--mono); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; white-space: pre-wrap; word-break: break-word; }
+
+  /* ---------- Logs ---------- */
+  .logs-card { margin-top: 16px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 14px 20px 0; }
+  .toolbar .left, .toolbar .right { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .toolbar .small-switch { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .toolbar .small-switch .switch { transform: scale(.85); margin: 0; }
+  .logs { margin: 14px 20px 20px; height: 420px; overflow: auto; background: #0c0f0d; color: #d5dbd6; border-radius: var(--radius-sm); border: 1px solid #1f2622; font: 12.5px/1.55 var(--mono); padding: 10px 0; }
+  .log-line { display: grid; grid-template-columns: 74px 64px 1fr; gap: 10px; padding: 1px 14px; }
+  .log-line:hover { background: #151a17; }
+  .log-line .t { color: #6f7a72; font-variant-numeric: tabular-nums; }
+  .log-line .lv { font-weight: 700; font-size: 11px; letter-spacing: .03em; padding-top: 1.5px; }
+  .log-line .m { white-space: pre-wrap; word-break: break-word; }
+  .log-line.INFO .lv { color: #6cb6ff; }
+  .log-line.DEBUG .lv { color: #6f7a72; }
+  .log-line.WARNING .lv { color: #f2b33d; }
+  .log-line.WARNING .m { color: #f5d28a; }
+  .log-line.ERROR .lv, .log-line.CRITICAL .lv { color: #ff7b70; }
+  .log-line.ERROR .m, .log-line.CRITICAL .m { color: #ffb3ac; }
+  .log-line.cont { grid-template-columns: 74px 64px 1fr; }
+  .logs-empty { color: #6f7a72; padding: 24px; text-align: center; }
+  @media (max-width: 620px) {
+    .log-line { grid-template-columns: 1fr; gap: 0; padding: 4px 12px; border-bottom: 1px solid #161b18; }
+    .log-line .t, .log-line .lv { display: inline; }
+    .logs { height: 360px; margin: 12px; }
+    .toolbar { padding: 12px 12px 0; }
+  }
+
+  /* ---------- Save bar ---------- */
+  .savebar { position: fixed; left: 50%; bottom: 18px; transform: translate(-50%, 140%); z-index: 30; display: flex; align-items: center; gap: 10px; padding: 9px 9px 9px 18px; border-radius: 14px; background: var(--text); color: var(--bg); box-shadow: var(--shadow-pop); transition: transform .25s cubic-bezier(.2,.9,.3,1.2); width: max-content; max-width: calc(100vw - 32px); }
+  .savebar.show { transform: translate(-50%, 0); }
+  .savebar .msg { font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+  .savebar .msg .err { color: #ff9a91; }
+  .savebar .btn.ghost { color: color-mix(in srgb, var(--bg) 75%, transparent); }
+  .savebar .btn.ghost:hover { background: color-mix(in srgb, var(--bg) 12%, transparent); color: var(--bg); }
+  .savebar .btn.primary { background: var(--accent); border-color: var(--accent); }
+  @media (prefers-color-scheme: dark) { .savebar .btn.primary { color: var(--on-accent); } }
+  .savebar kbd { background: transparent; border-color: color-mix(in srgb, var(--bg) 30%, transparent); color: inherit; font-size: 11px; }
+  @media (max-width: 620px) { .savebar { left: 16px; right: 16px; width: auto; transform: translateY(140%); } .savebar.show { transform: none; } .savebar kbd { display: none; } }
+
+  /* ---------- Toasts ---------- */
+  .toasts { position: fixed; top: 74px; right: 16px; z-index: 40; display: grid; gap: 8px; width: min(380px, calc(100vw - 32px)); }
+  .toast { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-pop); font-size: 14px; animation: toast-in .25s ease-out; }
+  .toast svg { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+  .toast.success svg { color: var(--accent); }
+  .toast.error svg { color: var(--danger); }
+  .toast.info svg { color: var(--info); }
+  .toast .body { flex: 1; display: grid; gap: 6px; }
+  .toast .actions { display: flex; gap: 6px; }
+  .toast.leaving { opacity: 0; transform: translateY(-6px); transition: .2s; }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } }
+
+  /* ---------- Dialog ---------- */
+  dialog { border: 1px solid var(--border); border-radius: 16px; padding: 0; background: var(--surface); color: var(--text); box-shadow: var(--shadow-pop); width: min(440px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(0, 0, 0, .45); backdrop-filter: blur(2px); }
+  dialog .d-body { padding: 22px 22px 8px; }
+  dialog h3 { margin: 0 0 6px; font-size: 17px; }
+  dialog p { margin: 0; color: var(--muted); font-size: 14px; }
+  dialog .d-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 22px 20px; }
+
+  /* ---------- Loading skeleton ---------- */
+  .skeleton { height: 220px; border-radius: var(--radius); background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border: 1px solid var(--border); }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .load-error { padding: 20px; }
+
+  footer { max-width: 1180px; margin: 0 auto; padding: 0 16px 40px; color: var(--faint); font-size: 12.5px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } html { scroll-behavior: auto; } }
+</style>
 </head>
 <body>
-    <header>
-        <h1>Configuration Interface</h1>
-    </header>
-    <main>
-        <section>
-            <h2>Edit Configuration</h2>
-            <div id="status" class="help">Loading schema…</div>
-            <form id="configForm">
-              <div id="formFields"></div>
-              <div style="text-align:center; margin-top:12px;">
-                <button id="saveBtn" class="btn">Save</button>
-              </div>
-            </form>
-        </section>
-        <section>
-            <h2>Application Logs</h2>
-            <pre id="logs">Loading logs...</pre>
-        </section>
-        <section>
-            <h2>Git Pull</h2>
-            <button onclick="gitPull()">Run Git Pull</button>
-            <pre id="gitOutput">Git output will appear here...</pre>
-        </section>
-        <section>
-            <h2>Run Application</h2>
-            <button onclick="runApplication()">Start Application</button>
-            <pre id="runOutput">Application status will appear here...</pre>
-        </section>
-    </main>
-    <script>
-        // Dynamically load Ajv (try CDN, then local fallback). Returns a Promise that resolves when Ajv is available.
-        function loadAjv() {
-            return new Promise((resolve, reject) => {
-                if (typeof Ajv !== 'undefined') return resolve();
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.34 9.5 4.75 4.75 0 0 0 6.5 19h11Z"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 3v18M16 3v18M3 8h18M3 16h18"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 5.1A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-14.6-4.5L4 8M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5L20 16m0 4v-4h-4"/></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9M6.3 6.3a8 8 0 1 0 11.4 0"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></symbol>
+  </defs>
+</svg>
 
-                const cdn = document.createElement('script');
-                cdn.src = 'https://cdn.jsdelivr.net/npm/ajv@8/dist/ajv.min.js';
-                cdn.async = true;
-                cdn.onload = () => { if (typeof Ajv !== 'undefined') resolve(); else reject(new Error('Ajv loaded but not found')) };
-                cdn.onerror = () => {
-                    // Try local fallback (allowed if you place ajv.min.js under configurator/static/)
-                    const local = document.createElement('script');
-                    local.src = '/static/vendor/ajv.min.js';
-                    local.async = true;
-                    local.onload = () => { if (typeof Ajv !== 'undefined') resolve(); else reject(new Error('Local Ajv loaded but not found')); };
-                    local.onerror = () => reject(new Error('Failed to load Ajv from CDN and local fallback'));
-                    document.head.appendChild(local);
-                };
-                document.head.appendChild(cdn);
-            });
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <i></i><i></i><i></i><i class="y"></i>
+        <i></i><i></i><i class="g"></i><i></i>
+        <i class="g"></i><i class="g"></i><i></i><i></i>
+        <i></i><i></i><i></i><i></i>
+      </div>
+      <div>
+        <h1>CGM LED Matrix</h1>
+        <p>Configurator</p>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <span class="chip" id="serviceChip" data-state="unknown" title="State of the display service">
+      <span class="dot"></span><span id="serviceChipText">Checking…</span>
+    </span>
+  </div>
+</header>
+
+<div class="layout">
+  <main>
+    <nav class="section-nav" id="sectionNav" aria-label="Settings sections"></nav>
+    <form id="configForm" novalidate>
+      <div class="groups" id="groups">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      </div>
+    </form>
+
+    <section class="card logs-card" id="logs-section" aria-labelledby="logsTitle">
+      <div class="card-head">
+        <div class="icon"><svg><use href="#i-terminal"/></svg></div>
+        <div>
+          <h2 id="logsTitle">Logs</h2>
+          <p>The display app's <code>app.log</code>. The Nightscout token is always hidden.</p>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="left">
+          <div class="segmented" role="radiogroup" aria-label="Log filter">
+            <label><input type="radio" name="logFilter" value="all" checked><span>All</span></label>
+            <label><input type="radio" name="logFilter" value="problems"><span>Warnings &amp; errors <b id="problemCount"></b></span></label>
+          </div>
+        </div>
+        <div class="right">
+          <label class="small-switch"><span class="switch"><input type="checkbox" id="logAuto" checked><span></span></span>Live</label>
+          <button type="button" class="btn sm ghost" id="logCopy"><svg><use href="#i-copy"/></svg>Copy</button>
+          <button type="button" class="btn sm" id="logRefresh"><svg><use href="#i-refresh"/></svg>Refresh</button>
+        </div>
+      </div>
+      <div class="logs" id="logs" role="log" aria-live="off" tabindex="0"><div class="logs-empty">Loading logs…</div></div>
+    </section>
+  </main>
+
+  <aside class="aside">
+    <section class="card" aria-labelledby="previewTitle">
+      <div class="card-head">
+        <div class="icon"><svg><use href="#i-eye"/></svg></div>
+        <div>
+          <h3 id="previewTitle">What the display shows</h3>
+          <p>The last frame the app drew.</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="panel">
+          <div class="panel-screen"><img id="previewImg" alt="Last frame sent to the LED matrix" hidden></div>
+          <div class="panel-empty" id="previewEmpty">No frame yet. It appears once the display service draws its first image.</div>
+        </div>
+        <div class="preview-meta" id="previewMeta">
+          <span id="previewAge">—</span>
+          <button type="button" class="btn sm ghost" id="previewRefresh" aria-label="Refresh preview"><svg><use href="#i-refresh"/></svg></button>
+        </div>
+        <details class="legend">
+          <summary>How to read it</summary>
+          <ul>
+            <li><i style="background:#fff"></i><span>Top row: current glucose, trend arrow and change since the last reading.</span></li>
+            <li><i style="background:var(--zone-green)"></i><span>Dots: one column per 5 minutes, newest on the right. Green in range, yellow near a limit, red out of range.</span></li>
+            <li><i style="background:#fa6478"></i><span>Top-left column: minutes since the last reading, one pink pixel per minute.</span></li>
+            <li><i style="background:#f54600"></i><span>Orange bars: carbs. Teal bars: bolus. Dim blue area: insulin on board.</span></li>
+            <li><i style="background:#fa0069"></i><span>Purple marks on the limit lines: exercise.</span></li>
+            <li><i style="background:var(--zone-red)"></i><span>Red mark top-left: data is stale.</span></li>
+          </ul>
+        </details>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="serviceTitle">
+      <div class="card-head">
+        <div class="icon"><svg><use href="#i-power"/></svg></div>
+        <div>
+          <h3 id="serviceTitle">Display service</h3>
+          <p id="serviceSub">The app reads the settings when it starts.</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="callout" id="restartCallout" hidden>
+          <svg><use href="#i-alert"/></svg>
+          <div>Settings saved. <strong>Restart the display</strong> to apply them.</div>
+        </div>
+        <dl class="kv" style="margin-top:12px">
+          <dt>Service</dt><dd id="kvService">—</dd>
+          <dt>Settings saved</dt><dd id="kvConfig">—</dd>
+        </dl>
+        <div class="service-actions">
+          <button type="button" class="btn block" id="restartBtn"><span class="spinner"></span><svg><use href="#i-power"/></svg>Restart display</button>
+          <div class="row">
+            <button type="button" class="btn sm" id="pullBtn" title="git pull only"><span class="spinner"></span><svg><use href="#i-download"/></svg>Pull code</button>
+            <button type="button" class="btn sm" id="updateBtn" title="git stash, pull, stash pop, then restart"><span class="spinner"></span><svg><use href="#i-refresh"/></svg>Update &amp; restart</button>
+          </div>
+        </div>
+        <pre class="output" id="serviceOutput" hidden></pre>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<footer>
+  Changes are written to <code>configurator/config.json</code>. Every setting is documented in <code>config.schema.json</code> and the README.
+</footer>
+
+<div class="savebar" id="savebar" role="region" aria-label="Unsaved changes">
+  <span class="msg" id="savebarMsg">Unsaved changes</span>
+  <button type="button" class="btn sm ghost" id="discardBtn">Discard</button>
+  <button type="button" class="btn sm primary" id="saveBtn"><span class="spinner"></span>Save <kbd>Ctrl S</kbd></button>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<dialog id="confirmDialog">
+  <form method="dialog">
+    <div class="d-body">
+      <h3 id="confirmTitle">Are you sure?</h3>
+      <p id="confirmText"></p>
+    </div>
+    <div class="d-actions">
+      <button class="btn" value="cancel">Cancel</button>
+      <button class="btn primary" value="ok" id="confirmOk">Continue</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  'use strict';
+
+  const TOKEN_MASK = '********';
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const el = (tag, attrs = {}, ...children) => {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v === false || v === null || v === undefined) continue;
+      if (k === 'class') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+      else node.setAttribute(k, v === true ? '' : v);
+    }
+    for (const child of children.flat()) {
+      if (child === null || child === undefined || child === false) continue;
+      node.append(child instanceof Node ? child : document.createTextNode(child));
+    }
+    return node;
+  };
+  const icon = (name) => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#i-' + name);
+    svg.append(use);
+    return svg;
+  };
+  const store = {
+    get(key) { try { return sessionStorage.getItem(key); } catch { return null; } },
+    set(key, value) { try { value === null ? sessionStorage.removeItem(key) : sessionStorage.setItem(key, value); } catch {} },
+  };
+
+  function timeAgo(iso) {
+    if (!iso) return null;
+    const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (seconds < 45) return 'just now';
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return minutes + ' min ago';
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return hours + ' h ago';
+    return new Date(iso).toLocaleString();
+  }
+
+  async function api(url, options = {}) {
+    const res = await fetch(url, options);
+    let data = null;
+    try { data = await res.json(); } catch { /* not JSON */ }
+    if (!res.ok) {
+      const err = new Error((data && (data.message || data.error)) || res.statusText || 'Request failed');
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  }
+
+  /* ---------- Toasts & dialog ---------- */
+  function toast(kind, message, actions = []) {
+    const iconName = kind === 'success' ? 'check' : kind === 'error' ? 'alert' : 'info';
+    const node = el('div', { class: 'toast ' + kind, role: kind === 'error' ? 'alert' : 'status' },
+      icon(iconName),
+      el('div', { class: 'body' }, el('div', { text: message }),
+        actions.length ? el('div', { class: 'actions' }, actions.map(a =>
+          el('button', { type: 'button', class: 'btn sm' + (a.primary ? ' primary' : ''), text: a.label, onclick: () => { close(); a.run(); } }))) : null));
+    const close = () => { node.classList.add('leaving'); setTimeout(() => node.remove(), 200); };
+    $('#toasts').append(node);
+    setTimeout(close, actions.length ? 9000 : kind === 'error' ? 7000 : 3500);
+  }
+
+  function confirmAction(title, text, okLabel) {
+    const dialog = $('#confirmDialog');
+    $('#confirmTitle').textContent = title;
+    $('#confirmText').textContent = text;
+    $('#confirmOk').textContent = okLabel;
+    if (typeof dialog.showModal !== 'function') return Promise.resolve(window.confirm(title + '\n\n' + text));
+    return new Promise(resolve => {
+      dialog.addEventListener('close', () => resolve(dialog.returnValue === 'ok'), { once: true });
+      dialog.showModal();
+    });
+  }
+
+  /* ---------- Form state ---------- */
+  const state = {
+    schema: null,
+    fields: new Map(),     // key -> field controller
+    raw: {},               // the config as loaded (keeps hidden keys)
+    baseline: {},          // visible values as loaded, to detect changes
+    tokenSaved: false,
+    serverErrors: {},
+  };
+
+  function uiMin(spec) { return spec['x-min'] ?? spec.minimum; }
+
+  function validateField(key, value, values) {
+    const f = state.fields.get(key);
+    const spec = f.spec;
+    const required = (state.schema.required || []).includes(key);
+    const empty = value === null || value === undefined || value === '';
+    if (key === 'token' && empty && state.tokenSaved) return null;
+    if (empty) return required ? 'Required.' : null;
+    if (spec.type === 'integer' || spec.type === 'number') {
+      if (typeof value !== 'number' || Number.isNaN(value)) return 'Enter a number.';
+      if (spec.type === 'integer' && !Number.isInteger(value)) return 'Enter a whole number.';
+      const min = uiMin(spec);
+      if (min !== undefined && value < min) return `Must be at least ${min}${spec['x-unit'] ? ' ' + spec['x-unit'] : ''}.`;
+      if (spec.maximum !== undefined && value > spec.maximum) return `Must be at most ${spec.maximum}${spec['x-unit'] ? ' ' + spec['x-unit'] : ''}.`;
+    }
+    if (spec.format === 'uri' && !/^https?:\/\/[^\s/]+\.[^\s]+$/i.test(value)) return 'Enter a full address starting with https://';
+    if (spec.pattern && typeof value === 'string' && !new RegExp(spec.pattern).test(value)) {
+      return key === 'ip' ? 'Use the format AA:BB:CC:DD:EE:FF.' : 'Invalid format.';
+    }
+    if (key === 'url' && typeof value === 'string' && !/\/api\/v\d\/?$/.test(value)) return 'Should end with /api/v2 (for example https://my-site.com/api/v2).';
+    if (key === 'high boundary glucose' || key === 'low boundary glucose') {
+      const low = values['low boundary glucose'] ?? 70;
+      const high = values['high boundary glucose'] ?? 160;
+      if (low >= high) return key === 'low boundary glucose' ? 'Must be lower than the high limit.' : 'Must be higher than the low limit.';
+    }
+    return null;
+  }
+
+  function currentValues() {
+    const values = {};
+    for (const [key, f] of state.fields) values[key] = f.get();
+    return values;
+  }
+
+  function isVisible(key, values) {
+    const cond = state.fields.get(key).spec['x-show-if'];
+    if (!cond) return true;
+    return Object.entries(cond).every(([k, v]) => values[k] === v);
+  }
+
+  function same(a, b) { return JSON.stringify(a ?? null) === JSON.stringify(b ?? null); }
+
+  function refresh({ showAllErrors = false } = {}) {
+    const values = currentValues();
+    let changed = 0;
+    const errorsByGroup = {};
+    let errorCount = 0;
+    for (const [key, f] of state.fields) {
+      const visible = isVisible(key, values);
+      f.wrap.hidden = !visible;
+      const modified = !same(values[key], state.baseline[key]);
+      if (modified) changed++;
+      f.wrap.classList.toggle('is-modified', modified);
+      const message = visible ? (state.serverErrors[key] || validateField(key, values[key], values)) : null;
+      const shown = message && (showAllErrors || f.touched || state.serverErrors[key]);
+      f.wrap.classList.toggle('has-error', !!shown);
+      f.errorText.lastChild.textContent = shown ? message : '';
+      f.control?.setAttribute('aria-invalid', shown ? 'true' : 'false');
+      if (message) { errorCount++; errorsByGroup[f.group] = (errorsByGroup[f.group] || 0) + 1; }
+    }
+    for (const link of document.querySelectorAll('.section-nav a')) {
+      const badge = link.querySelector('.badge');
+      const n = showAllErrors || link.dataset.touched ? errorsByGroup[link.dataset.group] : 0;
+      badge.hidden = !n;
+      badge.textContent = n || '';
+    }
+    updateZones(values);
+    const bar = $('#savebar');
+    bar.classList.toggle('show', changed > 0);
+    $('#savebarMsg').replaceChildren(
+      changed === 1 ? '1 unsaved change' : `${changed} unsaved changes`,
+      errorCount && showAllErrors ? el('span', { class: 'err', text: `· ${errorCount} to fix` }) : '');
+    state.dirty = changed > 0;
+    return { values, errorCount };
+  }
+
+  /* ---------- Field builders ---------- */
+  function fieldShell(key, spec, { wide = false, labelFor = true } = {}) {
+    const id = 'f-' + key.replace(/\W+/g, '-');
+    const wrap = el('div', { class: 'field' + (wide ? ' wide' : ''), 'data-key': key });
+    const title = spec.title || key;
+    const label = labelFor
+      ? el('label', { for: id }, title, el('span', { class: 'modified-dot', title: 'Changed' }))
+      : el('span', { class: 'label', id: id + '-label' }, title, el('span', { class: 'modified-dot', title: 'Changed' }));
+    const help = spec.description ? el('p', { class: 'help', id: id + '-help' }, renderHelp(spec.description)) : null;
+    const errorText = el('div', { class: 'error-text', id: id + '-error' }, icon('alert'), el('span'));
+    return { id, wrap, label, help, errorText };
+  }
+
+  // Turn `python -c "..."`-like snippets and file names into <code> for readability.
+  function renderHelp(text) {
+    const parts = [];
+    const re = /(python -c "[^"]+"|\/api\/v2|\/entries\.json|\/treatments\.json|\/properties\/iob|temp\/output_image\.png|rfkill unblock bluetooth|IDM-|primary|readable-[\w]+)/g;
+    let last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) parts.push(text.slice(last, m.index));
+      parts.push(el('code', { text: m[0] }));
+      last = m.index + m[0].length;
+    }
+    parts.push(text.slice(last));
+    return parts;
+  }
+
+  function buildBoolean(key, spec) {
+    const s = fieldShell(key, spec, { wide: true, labelFor: false });
+    const input = el('input', { type: 'checkbox', role: 'switch', id: s.id, 'aria-labelledby': s.id + '-label', 'aria-describedby': s.id + '-help' });
+    const row = el('label', { class: 'switch-row', for: s.id },
+      el('span', { class: 'text' },
+        el('strong', { id: s.id + '-label' }, spec.title || key, el('span', { class: 'modified-dot' })),
+        spec.description ? el('span', { class: 'help', id: s.id + '-help' }, renderHelp(spec.description)) : null),
+      el('span', { class: 'switch' }, input, el('span')));
+    s.wrap.append(row, s.errorText);
+    return { ...s, control: input, get: () => input.checked, set: v => { input.checked = !!v; } };
+  }
+
+  function buildSegmented(key, spec) {
+    const s = fieldShell(key, spec, { wide: true, labelFor: false });
+    const group = el('div', { class: 'segmented', role: 'radiogroup', 'aria-labelledby': s.id + '-label' });
+    const name = s.id;
+    for (const opt of spec.enum) {
+      group.append(el('label', {}, el('input', { type: 'radio', name, value: opt }),
+        el('span', { text: (spec['x-labels'] || {})[opt] || opt })));
+    }
+    s.wrap.append(s.label, group, s.help, s.errorText);
+    return {
+      ...s, control: group,
+      get: () => (group.querySelector('input:checked') || {}).value ?? null,
+      set: v => { for (const r of group.querySelectorAll('input')) r.checked = r.value === v; },
+    };
+  }
+
+  function buildSelect(key, spec) {
+    const s = fieldShell(key, spec);
+    const select = el('select', { id: s.id, 'aria-describedby': s.id + '-help ' + s.id + '-error' });
+    for (const opt of spec.enum) select.append(el('option', { value: opt, text: (spec['x-labels'] || {})[opt] || opt }));
+    s.wrap.append(s.label, el('div', { class: 'control' }, select), s.help, s.errorText);
+    return { ...s, control: select, get: () => select.value, set: v => { if (v !== undefined && v !== null) select.value = v; } };
+  }
+
+  function buildRange(key, spec) {
+    const s = fieldShell(key, spec, { wide: true });
+    const min = uiMin(spec), max = spec.maximum ?? 100;
+    const slider = el('input', { type: 'range', min, max, step: 1, 'aria-labelledby': s.id + '-label', 'aria-describedby': s.id + '-help' });
+    const number = el('input', { type: 'number', id: s.id, min, max, step: 1, inputmode: 'numeric' });
+    slider.addEventListener('input', () => { number.value = slider.value; number.dispatchEvent(new Event('input', { bubbles: true })); });
+    number.addEventListener('input', () => { if (number.value !== '') slider.value = number.value; });
+    s.label.id = s.id + '-label';
+    s.wrap.append(s.label, el('div', { class: 'range' }, slider,
+      el('div', { class: 'control' }, number, spec['x-unit'] ? el('span', { class: 'suffix', text: spec['x-unit'] }) : null)), s.help, s.errorText);
+    return {
+      ...s, control: number,
+      get: () => number.value === '' ? null : Number(number.value),
+      set: v => { const n = v === null || v === undefined ? '' : v; number.value = n; slider.value = n === '' ? min : n; },
+    };
+  }
+
+  function buildNumber(key, spec) {
+    const s = fieldShell(key, spec);
+    const input = el('input', {
+      type: 'number', id: s.id, inputmode: spec.type === 'integer' ? 'numeric' : 'decimal',
+      min: uiMin(spec), max: spec.maximum, step: spec.type === 'integer' ? 1 : 'any',
+      placeholder: spec['x-placeholder'] ? spec['x-placeholder'] + ' (default)' : '',
+      'aria-describedby': s.id + '-help ' + s.id + '-error',
+    });
+    s.wrap.append(s.label, el('div', { class: 'control' }, input, spec['x-unit'] ? el('span', { class: 'suffix', text: spec['x-unit'] }) : null), s.help, s.errorText);
+    return { ...s, control: input, get: () => input.value === '' ? null : Number(input.value), set: v => { input.value = v ?? ''; } };
+  }
+
+  function buildText(key, spec) {
+    const secret = spec['x-widget'] === 'secret';
+    const s = fieldShell(key, spec, { wide: true });
+    const input = el('input', {
+      type: secret ? 'password' : (spec.format === 'uri' ? 'url' : 'text'), id: s.id,
+      placeholder: (spec.examples || [])[0] ? 'e.g. ' + spec.examples[0] : '',
+      autocomplete: secret ? 'new-password' : 'off', spellcheck: 'false', autocapitalize: 'off',
+      'aria-describedby': s.id + '-help ' + s.id + '-error',
+    });
+    const control = el('div', { class: 'control' }, input);
+    if (secret) {
+      const toggle = el('button', { type: 'button', class: 'inline-btn', 'aria-label': 'Show token' }, icon('eye'));
+      toggle.addEventListener('click', () => {
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        toggle.replaceChildren(icon(show ? 'eye-off' : 'eye'));
+        toggle.setAttribute('aria-label', show ? 'Hide token' : 'Show token');
+      });
+      control.append(toggle);
+      s.savedNote = el('span', { class: 'saved-note', hidden: true }, icon('lock'), 'Saved');
+      s.label.append(s.savedNote);
+    }
+    s.wrap.append(s.label, control, s.help, s.errorText);
+    return { ...s, control: input, get: () => input.value.trim(), set: v => { input.value = v ?? ''; } };
+  }
+
+  function buildField(key, spec) {
+    if (spec.type === 'boolean') return buildBoolean(key, spec);
+    if (spec.enum && spec['x-widget'] === 'segmented') return buildSegmented(key, spec);
+    if (spec.enum) return buildSelect(key, spec);
+    if (spec['x-widget'] === 'range') return buildRange(key, spec);
+    if (spec.type === 'integer' || spec.type === 'number') return buildNumber(key, spec);
+    return buildText(key, spec);
+  }
+
+  /* ---------- Glucose range visual ---------- */
+  let zonesNode = null;
+  function buildZones() {
+    zonesNode = el('div', { class: 'zones', 'aria-hidden': 'true' },
+      el('div', { class: 'zones-bar' }),
+      el('div', { class: 'zones-scale' }),
+      el('div', { class: 'zones-legend' },
+        el('span', {}, el('i', { style: 'background:var(--zone-green)' }), 'In range'),
+        el('span', {}, el('i', { style: 'background:var(--zone-yellow)' }), 'At a limit (±10 mg/dL)'),
+        el('span', {}, el('i', { style: 'background:var(--zone-red)' }), 'Out of range')));
+    return zonesNode;
+  }
+  function updateZones(values) {
+    if (!zonesNode) return;
+    const lo = Number.isFinite(values['low boundary glucose']) ? values['low boundary glucose'] : 70;
+    const hi = Number.isFinite(values['high boundary glucose']) ? values['high boundary glucose'] : 160;
+    const MIN = 40, MAX = 300;
+    const clamp = v => Math.min(MAX, Math.max(MIN, v));
+    const stops = [MIN, clamp(lo - 10), clamp(lo), clamp(Math.max(lo, hi)), clamp(hi + 10), MAX];
+    const colors = ['var(--zone-red)', 'var(--zone-yellow)', 'var(--zone-green)', 'var(--zone-yellow)', 'var(--zone-red)'];
+    const bar = zonesNode.querySelector('.zones-bar');
+    bar.replaceChildren(...colors.map((c, i) => el('div', { style: `background:${c};flex:0 0 ${(stops[i + 1] - stops[i]) / (MAX - MIN) * 100}%` })));
+    const pos = v => ((clamp(v) - MIN) / (MAX - MIN) * 100) + '%';
+    const scale = zonesNode.querySelector('.zones-scale');
+    scale.replaceChildren(
+      el('span', { style: 'left:0;transform:none', text: MIN }),
+      el('span', { class: 'edge', style: `left:${pos(lo)}`, text: lo }),
+      el('span', { class: 'edge', style: `left:${pos(hi)}`, text: hi }),
+      el('span', { style: 'left:auto;right:0;transform:none', text: MAX + ' mg/dL' }));
+  }
+
+  /* ---------- Build the form ---------- */
+  function buildForm(schema) {
+    const groupsNode = $('#groups');
+    const nav = $('#sectionNav');
+    groupsNode.replaceChildren();
+    nav.replaceChildren();
+    const props = schema.properties || {};
+    for (const group of schema['x-groups'] || []) {
+      const keys = Object.keys(props).filter(k => props[k]['x-group'] === group.id && !props[k]['x-hidden']);
+      if (!keys.length) continue;
+      const fields = el('div', { class: 'fields' });
+      for (const key of keys) {
+        const f = buildField(key, props[key]);
+        f.group = group.id;
+        f.spec = props[key];
+        const markTouched = () => { f.touched = true; delete state.serverErrors[key]; refresh(); };
+        f.wrap.addEventListener('input', () => { delete state.serverErrors[key]; if (f.wrap.classList.contains('has-error')) f.touched = true; refresh(); });
+        f.wrap.addEventListener('change', markTouched);
+        f.wrap.addEventListener('focusout', markTouched);
+        state.fields.set(key, f);
+        fields.append(f.wrap);
+      }
+      if (group.id === 'glucose') fields.append(buildZones());
+      const card = el('section', { class: 'card', id: 'g-' + group.id, 'aria-labelledby': 'h-' + group.id },
+        el('div', { class: 'card-head' },
+          el('div', { class: 'icon' }, icon(group.icon || 'grid')),
+          el('div', {}, el('h2', { id: 'h-' + group.id, text: group.title }), group.description ? el('p', { text: group.description }) : null)),
+        el('div', { class: 'card-body' }, fields));
+      groupsNode.append(card);
+      nav.append(el('a', { href: '#g-' + group.id, 'data-group': group.id }, group.title, el('span', { class: 'badge', hidden: true })));
+    }
+    nav.append(el('a', { href: '#logs-section' }, 'Logs', el('span', { class: 'badge', hidden: true })));
+    setupScrollSpy();
+  }
+
+  function setupScrollSpy() {
+    if (!('IntersectionObserver' in window)) return;
+    const links = [...document.querySelectorAll('.section-nav a')];
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const id = entry.target.id;
+        links.forEach(a => a.classList.toggle('current', a.getAttribute('href') === '#' + id));
+      }
+    }, { rootMargin: '-80px 0px -65% 0px' });
+    document.querySelectorAll('#groups > section, #logs-section').forEach(s => observer.observe(s));
+  }
+
+  function normalizeLoaded(config) {
+    const out = { ...config };
+    // Same rule as the app: fractions below 1 are an old way of writing a percent.
+    const nb = out.night_brightness;
+    if (typeof nb === 'number' && nb > 0 && nb < 1) out.night_brightness = Math.round(nb * 100);
+    if (typeof out.url === 'string') out.url = out.url.replace(/\/+$/, '');
+    return out;
+  }
+
+  function fillForm(config) {
+    state.raw = config;
+    state.tokenSaved = config.token === TOKEN_MASK;
+    const normalized = normalizeLoaded(config);
+    for (const [key, f] of state.fields) {
+      let value = normalized[key];
+      if (key === 'token' && state.tokenSaved) value = '';
+      if (value === undefined && f.spec.type === 'boolean') value = false;
+      f.set(value);
+      f.touched = false;
+    }
+    const tokenField = state.fields.get('token');
+    if (tokenField) {
+      tokenField.savedNote.hidden = !state.tokenSaved;
+      tokenField.control.placeholder = state.tokenSaved ? 'Saved · type a new one to replace it' : 'Paste your Nightscout token';
+    }
+    state.serverErrors = {};
+    state.baseline = currentValues();
+    refresh();
+  }
+
+  function payload() {
+    const values = currentValues();
+    const data = { ...state.raw, ...values };
+    if (state.tokenSaved && !values.token) data.token = TOKEN_MASK;
+    return data;
+  }
+
+  async function save() {
+    const { errorCount } = refresh({ showAllErrors: true });
+    document.querySelectorAll('.section-nav a').forEach(a => a.dataset.touched = '1');
+    if (errorCount) {
+      const first = document.querySelector('.field.has-error');
+      first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      first?.querySelector('input, select')?.focus({ preventScroll: true });
+      toast('error', errorCount === 1 ? 'One setting needs fixing before saving.' : `${errorCount} settings need fixing before saving.`);
+      return;
+    }
+    const btn = $('#saveBtn');
+    btn.classList.add('loading'); btn.disabled = true;
+    try {
+      const res = await api('/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload()) });
+      const cfg = await api('/config');
+      fillForm(cfg.config || {});
+      setRestartPending(true);
+      toast('success', res.message || 'Settings saved.', [{ label: 'Restart now', primary: true, run: restartService }]);
+      loadStatus();
+    } catch (err) {
+      const list = (err.data && err.data.errors) || [];
+      if (list.length) {
+        for (const e of list) {
+          if (state.fields.has(e.path)) state.serverErrors[e.path] = e.message;
         }
-    
-        const schemaUrl = '/schema';
-        const configUrl = '/config';
+        refresh({ showAllErrors: true });
+        document.querySelector('.field.has-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const unmatched = list.filter(e => !state.fields.has(e.path));
+        toast('error', unmatched.length ? unmatched.map(e => `${e.path}: ${e.message}`).join(' · ') : 'The server rejected some values. See the highlighted fields.');
+      } else {
+        toast('error', 'Could not save: ' + err.message);
+      }
+    } finally {
+      btn.classList.remove('loading'); btn.disabled = false;
+    }
+  }
 
-        async function fetchJson(url) {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error(await res.text());
-            return res.json();
-        }
+  function discard() {
+    fillForm(state.raw);
+    toast('info', 'Changes discarded.');
+  }
 
-        function makeInputFor(key, spec, value) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'field';
+  /* ---------- Service ---------- */
+  function setRestartPending(on) {
+    store.set('restartPending', on ? '1' : null);
+    $('#restartCallout').hidden = !on;
+    $('#restartBtn').classList.toggle('primary', on);
+  }
 
-            const label = document.createElement('label');
-            label.textContent = key + (spec.description ? ' — ' + spec.description : '');
-            wrapper.appendChild(label);
+  const SERVICE_TEXT = {
+    active: 'Running', inactive: 'Stopped', failed: 'Failed', activating: 'Starting…', deactivating: 'Stopping…',
+    unsupported: 'Not managed here', unknown: 'Unknown',
+  };
 
-            if (spec.enum) {
-                const select = document.createElement('select');
-                select.name = key;
-                for (const opt of spec.enum) {
-                    const o = document.createElement('option');
-                    o.value = opt;
-                    o.textContent = opt;
-                    if (value == opt) o.selected = true;
-                    select.appendChild(o);
-                }
-                wrapper.appendChild(select);
-                return wrapper;
-            }
+  async function loadStatus() {
+    try {
+      const s = await api('/status');
+      const text = SERVICE_TEXT[s.service] || s.service;
+      const chip = $('#serviceChip');
+      chip.dataset.state = s.service;
+      $('#serviceChipText').textContent = s.service === 'unsupported' ? 'No service (Windows)' : 'Display ' + text.toLowerCase();
+      $('#kvService').textContent = s.service === 'unsupported' ? 'systemd not available' : text;
+      $('#kvConfig').textContent = timeAgo(s.config_updated) || 'never';
+      const unsupported = s.service === 'unsupported';
+      $('#restartBtn').disabled = unsupported;
+      $('#restartBtn').title = unsupported ? 'Restarting needs systemd (Linux). Restart GlucosePixelMatrix.py yourself.' : '';
+      $('#serviceSub').textContent = unsupported
+        ? 'Running on Windows: restart GlucosePixelMatrix.py yourself to apply changes.'
+        : 'The app reads the settings when it starts.';
+      updatePreviewMeta(s.preview_updated);
+    } catch {
+      $('#serviceChip').dataset.state = 'unknown';
+      $('#serviceChipText').textContent = 'Configurator offline';
+    }
+  }
 
-            switch (spec.type) {
-            case 'boolean':
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.name = key;
-                checkbox.checked = !!value;
-                // wrap in a label so description and checkbox align nicely
-                const chkLabel = document.createElement('label');
-                chkLabel.className = 'checkbox-label';
-                chkLabel.appendChild(checkbox);
-                const span = document.createElement('span');
-                span.textContent = (spec.description || key);
-                chkLabel.appendChild(span);
-                wrapper.appendChild(chkLabel);
-                break;
-                case 'integer':
-                case 'number':
-                    const num = document.createElement('input');
-                    num.type = 'number';
-                    num.name = key;
-                    if (value !== undefined) num.value = value;
-                    if (spec.minimum !== undefined) num.min = spec.minimum;
-                    if (spec.maximum !== undefined) num.max = spec.maximum;
-                    wrapper.appendChild(num);
-                    break;
-                default:
-                    const text = document.createElement('input');
-                    text.type = 'text';
-                    text.name = key;
-                    if (value !== undefined) text.value = value;
-                    wrapper.appendChild(text);
-            }
+  function showOutput(text) {
+    const out = $('#serviceOutput');
+    out.hidden = !text;
+    out.textContent = text || '';
+  }
 
-            if (spec.description) {
-                const help = document.createElement('div');
-                help.className = 'help';
-                help.textContent = spec.description;
-                wrapper.appendChild(help);
-            }
+  async function withButton(btn, fn) {
+    btn.classList.add('loading'); btn.disabled = true;
+    try { await fn(); } finally { btn.classList.remove('loading'); btn.disabled = false; loadStatus(); }
+  }
 
-            return wrapper;
-        }
+  async function restartService() {
+    await withButton($('#restartBtn'), async () => {
+      try {
+        const res = await api('/restart-service', { method: 'POST' });
+        setRestartPending(false);
+        toast('success', res.message || 'Display restarted.');
+        setTimeout(loadPreview, 8000);
+      } catch (err) {
+        toast('error', 'Restart failed: ' + err.message);
+      }
+    });
+  }
 
-        function buildForm(schema, config) {
-            const container = document.getElementById('formFields');
-            container.innerHTML = '';
-            const props = schema.properties || {};
-            for (const [key, spec] of Object.entries(props)) {
-                const val = (config && config.hasOwnProperty(key)) ? config[key] : undefined;
-                container.appendChild(makeInputFor(key, spec, val));
-            }
-        }
+  async function pullCode() {
+    await withButton($('#pullBtn'), async () => {
+      try {
+        const res = await api('/git-pull', { method: 'POST' });
+        showOutput(res.output || 'Already up to date.');
+        toast('success', 'Code pulled. Restart to run the new version.');
+      } catch (err) {
+        showOutput((err.data && err.data.output) || err.message);
+        toast('error', 'git pull failed. See the output below.');
+      }
+    });
+  }
 
-        function readForm(schema) {
-            const form = document.getElementById('configForm');
-            const data = {};
-            const props = schema.properties || {};
-            for (const key of Object.keys(props)) {
-                const spec = props[key];
-                const el = form.elements[key];
-                if (!el) continue;
-                if (spec.enum) {
-                    data[key] = el.value;
-                    continue;
-                }
-                switch (spec.type) {
-                    case 'boolean':
-                        data[key] = !!el.checked;
-                        break;
-                    case 'integer':
-                        data[key] = el.value === '' ? null : parseInt(el.value, 10);
-                        break;
-                    case 'number':
-                        data[key] = el.value === '' ? null : parseFloat(el.value);
-                        break;
-                    default:
-                        data[key] = el.value;
-                }
-            }
-            return data;
-        }
+  async function updateAndRestart() {
+    const ok = await confirmAction('Update and restart?',
+      'This stashes local changes, pulls the latest code from GitHub, re-applies your changes and restarts the display. The output is written to the logs.',
+      'Update & restart');
+    if (!ok) return;
+    await withButton($('#updateBtn'), async () => {
+      try {
+        const res = await api('/run', { method: 'POST' });
+        setRestartPending(false);
+        showOutput(res.message || 'Done.');
+        toast('success', 'Update finished. Check the logs for the details.');
+        loadLogs();
+      } catch (err) {
+        toast('error', 'Update failed: ' + err.message);
+      }
+    });
+  }
 
-        async function init() {
-            try {
-                const schema = await fetchJson(schemaUrl);
-                const cfgRes = await fetchJson(configUrl);
-                const config = cfgRes.config || {};
-                document.getElementById('status').textContent = 'Schema and config loaded.';
-                buildForm(schema, config);
+  /* ---------- Preview ---------- */
+  let previewUpdated = null;
+  function updatePreviewMeta(iso) {
+    if (iso) previewUpdated = iso;
+    const meta = $('#previewMeta');
+    const ago = timeAgo(previewUpdated);
+    $('#previewAge').textContent = ago ? 'Updated ' + ago : 'No frame yet';
+    const old = previewUpdated && (Date.now() - new Date(previewUpdated).getTime()) > 10 * 60 * 1000;
+    meta.classList.toggle('old', !!old);
+    meta.title = old ? 'No new frame for over 10 minutes. Is the display service running?' : '';
+  }
+  function loadPreview() {
+    const img = $('#previewImg');
+    const probe = new Image();
+    probe.onload = () => { img.src = probe.src; img.hidden = false; $('#previewEmpty').hidden = true; };
+    probe.onerror = () => { img.hidden = true; $('#previewEmpty').hidden = false; };
+    probe.src = '/preview?t=' + Date.now();
+  }
 
-                        try {
-                            await loadAjv();
-                        } catch (err) {
-                            document.getElementById('status').innerHTML = '<div class="error">JSON Schema validator (Ajv) could not be loaded: ' + err.message + '. Please ensure the browser can load the CDN or place a copy at /static/vendor/ajv.min.js.</div>';
-                            return;
-                        }
+  /* ---------- Logs ---------- */
+  const LOG_RE = /^(\d{4}-\d\d-\d\d) (\d\d:\d\d:\d\d)(?:,\d+)? - (\w+) - (.*)$/;
+  let lastLogText = '';
+  function renderLogs(text) {
+    const box = $('#logs');
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    const onlyProblems = document.querySelector('input[name="logFilter"]:checked').value === 'problems';
+    const lines = text.split(/\r?\n/).filter(l => l.length);
+    const nodes = [];
+    let level = 'INFO', problems = 0;
+    for (const line of lines) {
+      const m = LOG_RE.exec(line);
+      let time = '', lv = '', msg = line, cont = !m;
+      if (m) { time = m[2]; lv = m[3]; level = lv; msg = m[4]; }
+      const isProblem = ['WARNING', 'ERROR', 'CRITICAL'].includes(level);
+      if (m && isProblem) problems++;
+      if (onlyProblems && !isProblem) continue;
+      nodes.push(el('div', { class: 'log-line ' + level + (cont ? ' cont' : ''), title: m ? m[1] + ' ' + m[2] : '' },
+        el('span', { class: 't', text: time }), el('span', { class: 'lv', text: lv }), el('span', { class: 'm', text: msg })));
+    }
+    $('#problemCount').textContent = problems ? `(${problems})` : '';
+    box.replaceChildren(...(nodes.length ? nodes : [el('div', { class: 'logs-empty', text: onlyProblems ? 'No warnings or errors. 🎉' : 'No logs yet.' })]));
+    if (atBottom || !box.dataset.scrolled) { box.scrollTop = box.scrollHeight; box.dataset.scrolled = '1'; }
+  }
+  async function loadLogs() {
+    try {
+      const data = await api('/logs?lines=400');
+      lastLogText = data.logs || '';
+      renderLogs(lastLogText);
+    } catch (err) {
+      $('#logs').replaceChildren(el('div', { class: 'logs-empty', text: 'Could not load logs: ' + err.message }));
+    }
+  }
 
-                        const ajv = new Ajv();
-                const validate = ajv.compile(schema);
+  /* ---------- Wiring ---------- */
+  async function init() {
+    try {
+      const [schema, cfg] = await Promise.all([api('/schema'), api('/config')]);
+      state.schema = schema;
+      buildForm(schema);
+      fillForm(cfg.config || {});
+    } catch (err) {
+      $('#groups').replaceChildren(el('div', { class: 'card load-error' },
+        el('div', { class: 'callout' }, icon('alert'), el('div', {}, el('strong', { text: 'Could not load the settings. ' }), err.message)),
+        el('div', { style: 'margin-top:12px' }, el('button', { type: 'button', class: 'btn', text: 'Try again', onclick: () => location.reload() }))));
+    }
+  }
 
-                document.getElementById('configForm').addEventListener('submit', async (ev) => {
-                    ev.preventDefault();
-                    const data = readForm(schema);
-                    const valid = validate(data);
-                    const status = document.getElementById('status');
-                    if (!valid) {
-                        status.innerHTML = '<div class="error">Validation errors:<br/>' + validate.errors.map(e => `${e.instancePath || '/'} ${e.message}`).join('<br/>') + '</div>';
-                        return;
-                    }
-                    const res = await fetch('/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-                    const json = await res.json();
-                    if (!res.ok) {
-                        status.innerHTML = '<div class="error">Server errors: ' + JSON.stringify(json) + '</div>';
-                    } else {
-                        status.textContent = json.message || 'Saved';
-                    }
-                });
+  $('#saveBtn').addEventListener('click', save);
+  $('#discardBtn').addEventListener('click', discard);
+  $('#configForm').addEventListener('submit', e => { e.preventDefault(); save(); });
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (state.dirty) save(); }
+  });
+  window.addEventListener('beforeunload', e => { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
 
-            } catch (err) {
-                document.getElementById('status').textContent = 'Error loading schema or config: ' + err;
-            }
-        }
+  $('#restartBtn').addEventListener('click', restartService);
+  $('#pullBtn').addEventListener('click', pullCode);
+  $('#updateBtn').addEventListener('click', updateAndRestart);
+  $('#previewRefresh').addEventListener('click', () => { loadPreview(); loadStatus(); });
+  $('#logRefresh').addEventListener('click', loadLogs);
+  document.querySelectorAll('input[name="logFilter"]').forEach(r => r.addEventListener('change', () => renderLogs(lastLogText)));
+  $('#logCopy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(lastLogText); toast('success', 'Logs copied.'); }
+    catch { toast('error', 'Copy is blocked by the browser on plain http. Select the text instead.'); }
+  });
 
-        // Log helpers (preserve previous behavior)
-        function fetchLogs() {
-            fetch('/logs')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('logs').innerText = data.logs || "No logs available.";
-                })
-                .catch(error => {
-                    document.getElementById('logs').innerText = "Error fetching logs: " + error.message;
-                });
-        }
-
-        function gitPull() {
-            fetch('/git-pull', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('gitOutput').innerText = data.output || "Git pull executed.";
-                })
-                .catch(error => {
-                    document.getElementById('gitOutput').innerText = "Error running git pull: " + error.message;
-                });
-        }
-
-        function runApplication() {
-            fetch('/run', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('runOutput').innerText = data.message || "Run invoked";
-                })
-                .catch(error => {
-                    document.getElementById('runOutput').innerText = "Network error: " + error.message;
-                });
-        }
-
-        setInterval(fetchLogs, 5000);
-        fetchLogs();
-        init();
-    </script>
+  setRestartPending(store.get('restartPending') === '1');
+  init();
+  loadStatus();
+  loadPreview();
+  loadLogs();
+  setInterval(() => { if ($('#logAuto').checked && !document.hidden) loadLogs(); }, 5000);
+  setInterval(() => { if (!document.hidden) { loadPreview(); loadStatus(); } }, 20000);
+  setInterval(() => updatePreviewMeta(), 15000);
+})();
+</script>
 </body>
 </html>

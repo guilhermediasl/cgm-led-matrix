@@ -468,7 +468,7 @@ class TestGlucoseIntervalsDrawing:
         # Should not crash
         matrix.draw_glucose_intervals()
 
-    def test_plot_faded_interval(self, matrix):
+    def test_draw_line_between_glucose_points(self, matrix):
         # Mock formmated_entries for color determination
         now = datetime.now()
         matrix.formmated_entries = [
@@ -476,7 +476,7 @@ class TestGlucoseIntervalsDrawing:
             GlucoseItem(EntrieEnum.SGV, 100, now - timedelta(minutes=5))
         ]
         
-        matrix._plot_faded_interval(5, 10, 8, 12, 120, 0.1)
+        matrix._draw_line(5, 10, 8, 12, 120, 100, 0.1)
         
         # Should draw a line between the points
         total_lit = np.sum(np.any(matrix.pixels != 0, axis=2))
@@ -704,19 +704,19 @@ class TestDisplayMethods:
         # Should not crash
         matrix.display_glucose_on_matrix(120)
 
-    def test_display_entries(self, matrix):
+    def test_draw_entries(self, matrix):
         # Should not crash
-        matrix.display_entries()
+        matrix.draw_entries()
         
         # Should have plotted some points
         total_lit = np.sum(np.any(matrix.pixels != 0, axis=2))
         assert total_lit > 0
 
-    def test_display_entries_with_trail(self, matrix):
+    def test_draw_entries_with_trail(self, matrix):
         # Test that trail is drawn for first valid point not at index 0
         matrix.entries_by_time = [None, 120, 115, None] + [None] * 28
         
-        matrix.display_entries()
+        matrix.draw_entries()
         
         # Should plot entries and draw trail
         total_lit = np.sum(np.any(matrix.pixels != 0, axis=2))
@@ -962,7 +962,7 @@ class TestEdgeCases:
         total_lit = np.sum(np.any(matrix.pixels != 0, axis=2))
         assert total_lit >= 0
 
-    def test_display_entries_with_gaps(self, matrix):
+    def test_draw_entries_with_gaps(self, matrix):
         """Test displaying entries with gaps in data."""
         now = datetime.now()
         matrix.formmated_entries = [
@@ -974,7 +974,7 @@ class TestEdgeCases:
         # Create entries_by_time with gaps
         matrix.entries_by_time = [120] + [None] * 4 + [115, 110] + [None] * 25
         
-        matrix.display_entries()
+        matrix.draw_entries()
         
         # Should handle gaps gracefully
         total_lit = np.sum(np.any(matrix.pixels != 0, axis=2))

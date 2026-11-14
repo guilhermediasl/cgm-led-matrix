@@ -1,7 +1,7 @@
 import pytest
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 from GlucosePixelMatrix import GlucoseMatrixDisplay, get_nightmode
 from util import GlucoseItem, TreatmentItem, IobItem, EntrieEnum, TreatmentEnum
@@ -90,7 +90,7 @@ class TestDataParsing:
 
     @pytest.fixture
     def sample_entries_json(self):
-        now = datetime.now().replace(microsecond=123456) + timedelta(hours=3)
+        now = datetime.now(timezone.utc).replace(microsecond=123456, tzinfo=None)
         return [
             {
                 "type": "sgv",
@@ -108,7 +108,7 @@ class TestDataParsing:
 
     @pytest.fixture
     def sample_treatments_json(self):
-        now = datetime.now().replace(microsecond=123456) + timedelta(hours=3)
+        now = datetime.now(timezone.utc).replace(microsecond=123456, tzinfo=None)
         return [
             {
                 "_id": "test1",

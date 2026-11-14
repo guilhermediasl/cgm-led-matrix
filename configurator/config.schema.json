@@ -1,44 +1,179 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "iDot Matrix LED config schema",
+  "title": "CGM LED Matrix configuration",
+  "description": "Settings read by GlucosePixelMatrix.py at startup. The display service must be restarted for changes to take effect. Keys starting with x- are UI hints for the web configurator and are ignored by validators.",
   "type": "object",
   "additionalProperties": false,
+  "x-groups": [
+    { "id": "nightscout", "title": "Nightscout", "icon": "cloud", "description": "Where the glucose readings, treatments and insulin on board come from." },
+    { "id": "display", "title": "Display", "icon": "grid", "description": "The iDotMatrix panel and how the app talks to it over Bluetooth." },
+    { "id": "glucose", "title": "Glucose range", "icon": "target", "description": "Your target range. It draws the two guide lines and decides the colors: green inside, yellow at the edges, red more than 10 mg/dL outside." },
+    { "id": "clock", "title": "Clock", "icon": "clock", "description": "An optional clock drawn over the graph. It is always shown while the data is stale, so you can see how old it is." },
+    { "id": "night", "title": "Night mode & alerts", "icon": "moon", "description": "Brightness from 22:00 to 06:59 (100% during the day) and when old data is flagged." },
+    { "id": "calendar", "title": "Google Calendar", "icon": "calendar", "description": "Keeps one ten-minute event such as “🟢 112 → +2” in a calendar, so the reading shows up on a phone or watch. Needs OAuth credentials, see the README." }
+  ],
   "properties": {
-    "ip": { "type": "string", "description": "IP or MAC address of the iDot device" },
-    "token": { "type": "string", "description": "Nightscout API token (sensitive)" },
-    "url": { "type": "string", "format": "uri", "description": "Nightscout base URL" },
-    "output type": {
+    "url": {
       "type": "string",
-      "deprecated": true,
-      "description": "Deprecated and ignored: the display always receives an image. Kept so older configs still validate."
+      "format": "uri",
+      "title": "Nightscout API URL",
+      "description": "Your site followed by /api/v2. The app appends /entries.json, /treatments.json and /properties/iob.",
+      "examples": ["https://my-site.herokuapp.com/api/v2"],
+      "x-group": "nightscout"
+    },
+    "token": {
+      "type": "string",
+      "title": "Access token",
+      "description": "A token with read access, created in Nightscout under Admin Tools → Subjects (for example readable-1a2b3c4d5e6f). It is never shown here once saved and never written to the logs.",
+      "x-group": "nightscout",
+      "x-widget": "secret"
     },
     "image out": {
       "type": "string",
-      "enum": ["pc", "led matrix"],
-      "description": "Where to send generated image"
+      "enum": ["led matrix", "pc"],
+      "title": "Output",
+      "description": "Send each frame to the LED matrix over Bluetooth, or only render it to temp/output_image.png (useful for testing on a computer; the preview on this page still works).",
+      "x-labels": { "led matrix": "LED matrix (Bluetooth)", "pc": "Image file only" },
+      "x-group": "display",
+      "x-widget": "segmented"
     },
-    "os": { "type": "string", "enum": ["windows", "linux", "mac"], "description": "Operating system" },
-    "show_time": { "type": "boolean", "description": "Whether to render time on the image" },
+    "ip": {
+      "type": "string",
+      "title": "Display Bluetooth address",
+      "description": "The MAC address of the panel; its Bluetooth name starts with IDM-. Find it with: python -c \"import asyncio; from idotmatrix import ConnectionManager; print(asyncio.run(ConnectionManager.scan()))\"",
+      "examples": ["E9:BA:C7:6F:AB:41"],
+      "pattern": "^$|^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$",
+      "x-group": "display",
+      "x-show-if": { "image out": "led matrix" }
+    },
+    "os": {
+      "type": "string",
+      "enum": ["linux", "windows", "mac"],
+      "title": "Operating system",
+      "description": "On Linux the app runs rfkill unblock bluetooth at startup. Pick the system the display service runs on.",
+      "x-labels": { "linux": "Linux / Raspberry Pi", "windows": "Windows", "mac": "macOS" },
+      "x-group": "display"
+    },
+    "plot glucose intervals": {
+      "type": "boolean",
+      "title": "Connect readings with lines",
+      "description": "Draw faint lines between consecutive readings so the trend is easier to follow.",
+      "x-group": "display"
+    },
+    "low boundary glucose": {
+      "type": "integer",
+      "minimum": 40,
+      "maximum": 200,
+      "title": "Low limit",
+      "description": "Readings at or below this turn yellow, and red below it minus 10.",
+      "x-unit": "mg/dL",
+      "x-placeholder": "70",
+      "x-group": "glucose"
+    },
+    "high boundary glucose": {
+      "type": "integer",
+      "minimum": 80,
+      "maximum": 400,
+      "title": "High limit",
+      "description": "Readings at or above this turn yellow, and red above it plus 10.",
+      "x-unit": "mg/dL",
+      "x-placeholder": "160",
+      "x-group": "glucose"
+    },
+    "show_time": {
+      "type": "boolean",
+      "title": "Show the clock",
+      "description": "Draw the current time; the frame is redrawn every minute to keep it current.",
+      "x-group": "clock"
+    },
     "time_format": {
       "type": "string",
-      "enum": ["24h", "12h", "HH:MM", "HH:MM:SS", "compact", "MM:SS"],
-      "description": "Time format to use (24h or 12h or legacy tokens)"
+      "enum": ["24h", "12h", "HH:MM", "compact", "HH:MM:SS", "MM:SS"],
+      "title": "Format",
+      "description": "Seconds are only updated once a minute, so the formats with seconds are rarely useful.",
+      "x-labels": { "24h": "24-hour · 14:05", "12h": "12-hour · 02:05", "HH:MM": "24-hour · 14:05 (legacy)", "compact": "Compact · 1405", "HH:MM:SS": "With seconds · 14:05:09", "MM:SS": "Minutes and seconds · 05:09" },
+      "x-group": "clock",
+      "x-show-if": { "show_time": true }
     },
     "time_position": {
       "type": "string",
-      "enum": ["top-right", "top-left", "bottom-left", "bottom-right", "bottom"],
-      "description": "Where to place time on the matrix"
+      "enum": ["top-left", "top-right", "bottom-left", "bottom-right", "bottom"],
+      "title": "Position",
+      "description": "Top positions sit just under the high limit line, bottom ones near the low limit.",
+      "x-labels": { "top-left": "Top left", "top-right": "Top right", "bottom-left": "Bottom left", "bottom-right": "Bottom right", "bottom": "Bottom" },
+      "x-group": "clock",
+      "x-show-if": { "show_time": true }
     },
-    "time_color_fade": { "type": "number", "minimum": 0, "maximum": 1 },
-    "plot glucose intervals": { "type": "boolean" },
-    "low boundary glucose": { "type": "integer" },
-    "high boundary glucose": { "type": "integer" },
-    "night_brightness": { "type": "number", "minimum": 0, "maximum": 100 },
-    "PIXEL_INTERVAL": { "type": "integer", "minimum": 1, "description": "minutes per pixel" },
-    "google_calendar_enabled": { "type": "boolean", "description": "Synchronize the current glucose reading to Google Calendar" },
-    "google_calendar_id": { "type": "string", "description": "Google Calendar ID, usually primary" },
-    "google_calendar_credentials": { "type": "string", "description": "OAuth client credentials JSON path" },
-    "google_calendar_token": { "type": "string", "description": "OAuth token JSON path" }
+    "night_brightness": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "x-min": 5,
+      "title": "Night brightness",
+      "description": "Applied from 22:00 to 06:59; daytime is always 100%. Older configs with a fraction such as 0.1 are read as 10%.",
+      "x-unit": "%",
+      "x-widget": "range",
+      "x-group": "night"
+    },
+    "stale_minutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 180,
+      "title": "Flag data as stale after",
+      "description": "With no new reading for this long, a red mark replaces the reading-age counter and the clock is shown.",
+      "x-unit": "min",
+      "x-placeholder": "15",
+      "x-group": "night"
+    },
+    "google_calendar_enabled": {
+      "type": "boolean",
+      "title": "Sync the reading to Google Calendar",
+      "description": "On the first run a browser window asks you to authorize access, so authorize once on a computer and copy the token file to the Pi.",
+      "x-group": "calendar"
+    },
+    "google_calendar_id": {
+      "type": "string",
+      "title": "Calendar",
+      "description": "The calendar's name (for example cgm) or primary for your main calendar. Its events are replaced on every reading, so use a dedicated calendar.",
+      "examples": ["cgm"],
+      "x-group": "calendar",
+      "x-show-if": { "google_calendar_enabled": true }
+    },
+    "google_calendar_credentials": {
+      "type": "string",
+      "title": "OAuth credentials file",
+      "description": "The Desktop-app client JSON downloaded from Google Cloud. Relative paths are resolved from the project folder.",
+      "examples": ["credentials.json"],
+      "x-group": "calendar",
+      "x-show-if": { "google_calendar_enabled": true }
+    },
+    "google_calendar_token": {
+      "type": "string",
+      "title": "Token file",
+      "description": "Where the authorization is stored after the first login. Created automatically.",
+      "examples": ["calendar_token.json"],
+      "x-group": "calendar",
+      "x-show-if": { "google_calendar_enabled": true }
+    },
+    "time_color_fade": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Not used yet: the clock is always drawn at full brightness.",
+      "x-hidden": true
+    },
+    "PIXEL_INTERVAL": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Not used yet: each column is always five minutes.",
+      "x-hidden": true
+    },
+    "output type": {
+      "type": "string",
+      "deprecated": true,
+      "description": "Deprecated and ignored: the display always receives an image. Kept so older configs still validate.",
+      "x-hidden": true
+    }
   },
   "required": ["token", "url"]
 }

@@ -1,9 +1,9 @@
 """Validate `config.json` against `config.schema.json` and print friendly errors.
 
 Usage:
-    python led_matrix_configurator/validate_config.py [path/to/config.json]
+    python configurator/validate_config.py [path/to/config.json]
 
-If no path is provided the script looks for `led_matrix_configurator/config.json`.
+If no path is provided the script looks for `configurator/config.json`.
 """
 import json
 import os
@@ -47,7 +47,7 @@ def main(config_path=None):
     errors = sorted(validator.iter_errors(config), key=lambda e: e.path)
 
     if not errors:
-        print("Config is valid ✅")
+        print("Config is valid.")
         return 0
 
     print("Config validation errors:")

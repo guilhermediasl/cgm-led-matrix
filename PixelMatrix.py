@@ -771,10 +771,12 @@ class PixelMatrix:
             ColorType: Adjusted RGB color
         """
         percentil = max(0.1, percentil)
-        
-        r = int(color.r * percentil)
-        g = int(color.g * percentil)
-        b = int(color.b * percentil)
+
+        # Factors above 1 brighten (every 5th pixel of a treatment bar uses 1.4),
+        # so clamp to what a uint8 pixel can hold.
+        r = min(255, int(color.r * percentil))
+        g = min(255, int(color.g * percentil))
+        b = min(255, int(color.b * percentil))
 
         return ColorType(r, g, b)
         
