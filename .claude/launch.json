@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "configurator",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["configurator/configurator.py"],
+      "port": 5000
+    }
+  ]
+}

@@ -50,7 +50,7 @@ def get_nightmode() -> bool:
     """Determine if current time is in night mode.
 
     Returns:
-        bool: True if current time is night mode (21:00-06:00)
+        bool: True if current time is night mode (22:00-06:59)
     """
     DAY_START = 7
     DAY_END = 21
@@ -300,13 +300,17 @@ class GlucoseMatrixDisplay:
             self.matrix_client = MatrixClient(self.ip)
         return self.matrix_client
 
-    def run_command(self):
-        """Send the pending display action over the persistent Bluetooth connection."""
+    def run_command(self) -> bool:
+        """Send the pending display action over the persistent Bluetooth connection.
+
+        Returns:
+            bool: True if the action reached the display (or there was nothing to send)
+        """
         if self.image_out != "led matrix":
             logging.info("Image output is not 'led matrix', skipping display update.")
-            return
+            return True
         if self.display_action is None:
-            return
+            return True
         kind, value = self.display_action
         logging.info(f"Sending '{kind}' over persistent BLE connection: {value}")
         try:
@@ -321,8 +325,10 @@ class GlucoseMatrixDisplay:
                 raise ValueError(f"Unknown display action: {kind}")
             logging.info(f"Persistent BLE '{kind}' sent, with last glucose: {self.first_glucose_entry}")
             self.increase_command_run_count()
+            return True
         except Exception as e:
             logging.error(f"Persistent BLE '{kind}' failed: {e}")
+            return False
 
     def set_command(self, action):
         """Set the pending display action.
@@ -350,8 +356,11 @@ class GlucoseMatrixDisplay:
                     self.reset_run_command_count()
 
                 if self.last_night_state is None or self.has_day_shift_changed(self.last_night_state):
-                    self.run_set_brightness_command()
-                    self.last_night_state = get_nightmode()
+                    night_mode = get_nightmode()
+                    # Only remember the state once the display took it; a failed
+                    # send is retried on the next pass instead of next shift change.
+                    if self.run_set_brightness_command(night_mode):
+                        self.last_night_state = night_mode
 
                 if not ping_json or self.is_old_data(ping_json, self.max_time, logging_enabled=True):
                     now = datetime.datetime.now()
@@ -437,12 +446,22 @@ class GlucoseMatrixDisplay:
         logging.info("Running reset command.")
         self.set_command(("reset", None))
         self.run_command()
+        # The reset sequence ends with a brightness command of 80%, so the night
+        # brightness is lost; force it to be sent again on this pass.
+        self.last_night_state = None
 
-    def run_set_brightness_command(self):
-        """Send Adjust LED matrix brightness based on day/night mode."""
-        brightness = self.night_brightness if get_nightmode() else 100
+    def run_set_brightness_command(self, night_mode=None) -> bool:
+        """Send Adjust LED matrix brightness based on day/night mode.
+
+        Returns:
+            bool: True if the display accepted the brightness
+        """
+        if night_mode is None:
+            night_mode = get_nightmode()
+        brightness = self.night_brightness if night_mode else 100
+        logging.info(f"Setting brightness to {brightness}% ({'night' if night_mode else 'day'} mode).")
         self.set_command(("brightness", brightness))
-        self.run_command()
+        return self.run_command()
 
     def reset_formmated_jsons(self):
         """Clear the formatted data arrays for next update cycle."""

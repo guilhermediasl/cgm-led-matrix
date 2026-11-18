@@ -231,3 +231,42 @@ class TestConfiguratorPage:
         test_client, _ = client
         html = test_client.get("/").get_data(as_text=True)
         assert "<script src=" not in html
+
+
+class TestNightBrightness:
+    def _loop_once(self, display, monkeypatch):
+        display.fetch_json_data = MagicMock(return_value=[])
+        display.update_glucose_command = MagicMock()
+        display.sync_google_calendar = MagicMock()
+
+        def stop(_):
+            raise _StopLoop
+        monkeypatch.setattr(gpm.time, "sleep", stop)
+        with pytest.raises(_StopLoop):
+            display.run_command_in_loop()
+
+    def test_failed_brightness_is_retried(self, make_display, monkeypatch):
+        display = make_display()
+        monkeypatch.setattr(gpm, "get_nightmode", lambda: True)
+        display.run_command = MagicMock(return_value=False)
+        self._loop_once(display, monkeypatch)
+        assert display.last_night_state is None  # not recorded, so sent again
+
+        display.run_command = MagicMock(return_value=True)
+        self._loop_once(display, monkeypatch)
+        assert display.last_night_state is True
+
+    def test_reset_reapplies_night_brightness(self, make_display, monkeypatch):
+        display = make_display()
+        monkeypatch.setattr(gpm, "get_nightmode", lambda: True)
+        display.last_night_state = True
+        display.run_command_count = display.RUN_COMMAND_MAX_COUNT + 1
+        sent = []
+
+        def record():
+            sent.append(display.display_action)
+            return True
+        display.run_command = MagicMock(side_effect=record)
+        self._loop_once(display, monkeypatch)
+        assert sent[0] == ("reset", None)
+        assert sent[1] == ("brightness", display.night_brightness)
